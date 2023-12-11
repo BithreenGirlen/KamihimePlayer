@@ -1,6 +1,10 @@
 # KamihimePlayer
 某形式のパラパラ漫画を動かします。
 
+- Win32
+  - Media Foundation
+  - Direct2D
+
 ## 再生方法
 メニューから次のようなフォルダを開くと再生を開始します。
 <pre>
