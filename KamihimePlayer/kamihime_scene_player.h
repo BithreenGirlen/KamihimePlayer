@@ -24,7 +24,7 @@ public:
     CKamihimeScenePlayer(HWND hWnd);
     ~CKamihimeScenePlayer();
 
-    bool SetFolder(const wchar_t* pwzFolderPath);
+    bool SetFiles(const std::vector<std::wstring>& filePaths);
     bool DisplayImage();
     void Next();
     void UpScale();
@@ -36,8 +36,6 @@ public:
     void SpeedDown();
     bool SwitchPause();
 private:
-
-    std::wstring m_wstrFolder;
     HWND m_hRetWnd = nullptr;
 
     enum Portion { kInterval = 32, kWidth = 900 };
@@ -60,7 +58,6 @@ private:
     bool m_bPause = false;
 
     void Clear();
-    bool FindImages();
     bool LoadImageToMemory(const wchar_t* pwzFilePath);
     void Update();
     void ResizeWindow();

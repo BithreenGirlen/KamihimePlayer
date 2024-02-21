@@ -52,7 +52,7 @@ class CKamihimeMediaPlayer
 public:
 	CKamihimeMediaPlayer();
 	~CKamihimeMediaPlayer();
-    bool SetFolder(const wchar_t* pzFolderPath);
+    bool SetFiles(const std::vector<std::wstring>& filePaths);
     bool Play();
     void Next();
     void Back();
@@ -65,7 +65,6 @@ public:
     void AutoNext();
 private:
 
-    std::wstring m_wstrFolder;
     std::mutex m_mutex;
 
 	HRESULT m_hrComInit = E_FAIL;
@@ -81,11 +80,9 @@ private:
     size_t m_nIndex = 0;
 
     void Clear();
-    bool FindAudios();
 
     BOOL m_iLoop = FALSE;
     BOOL m_iMute = FALSE;
-
 };
 
 #endif //KAMIHIME_MEDIA_PLAYER_H_

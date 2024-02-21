@@ -136,6 +136,7 @@
     <ClInclude Include="main_window.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="win_filesystem.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="audio_volume_dialogue.cpp" />
@@ -144,6 +145,7 @@
     <ClCompile Include="kamihime_media_player.cpp" />
     <ClCompile Include="kamihime_scene_player.cpp" />
     <ClCompile Include="main_window.cpp" />
+    <ClCompile Include="win_filesystem.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KamihimePlayer.rc" />

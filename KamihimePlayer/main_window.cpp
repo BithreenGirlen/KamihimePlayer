@@ -6,7 +6,7 @@
 #include "main_window.h"
 #include "file_operation.h"
 #include "Resource.h"
-
+#include "win_filesystem.h"
 #include "audio_volume_dialogue.h"
 
 #pragma comment(lib, "Comctl32.lib")
@@ -574,84 +574,75 @@ void CMainWindow::SwitchWindowMode()
 /*フォルダ一覧表作成*/
 bool CMainWindow::CreateFolderList(const wchar_t* pwzFolderPath)
 {
-    if (pwzFolderPath == nullptr)return false;
-
     m_folders.clear();
     m_nIndex = 0;
-
-    std::wstring wstrFolder = pwzFolderPath;
-    std::wstring wstrParent;
-    std::wstring wstrCurrent;
-
-    size_t nPos = wstrFolder.find_last_of(L"\\/");
-    if (nPos != std::wstring::npos)
-    {
-        wstrParent = wstrFolder.substr(0, nPos);
-        wstrCurrent = wstrFolder.substr(nPos + 1);
-    }
-
-    if (wstrParent.empty())return false;
-
-    wstrParent += L"\\/";
-    std::wstring wstrPath = wstrParent + L'*';
-
-    WIN32_FIND_DATA sFindData{};
-    std::vector<std::wstring> wstrFolders;
-
-    HANDLE hFind = ::FindFirstFile(wstrPath.c_str(), &sFindData);
-    if (hFind != INVALID_HANDLE_VALUE)
-    {
-        do
-        {
-            if ((sFindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-            {
-                if (wcscmp(sFindData.cFileName, L".") != 0 && wcscmp(sFindData.cFileName, L"..") != 0)
-                {
-                    wstrFolders.push_back(sFindData.cFileName);
-                }
-            }
-        } while (::FindNextFile(hFind, &sFindData));
-        ::FindClose(hFind);
-    }
-
-    for (size_t i = 0; i < wstrFolders.size(); ++i)
-    {
-        size_t nIndex = i;
-        for (size_t j = i + 1; j < wstrFolders.size() - 1; ++j)
-        {
-            if (::StrCmpLogicalW(wstrFolders.at(nIndex).c_str(), wstrFolders.at(j).c_str()) > 0)
-            {
-                nIndex = j;
-            }
-        }
-        std::swap(wstrFolders.at(i), wstrFolders.at(nIndex));
-    }
-
-    auto iter = std::find(wstrFolders.begin(), wstrFolders.end(), wstrCurrent);
-    if (iter != wstrFolders.end())
-    {
-        m_nIndex = std::distance(wstrFolders.begin(), iter);
-    }
-
-    for (std::wstring wstr : wstrFolders)
-    {
-        m_folders.push_back(wstrParent + wstr);
-    }
+    win_filesystem::GetFolderListAndIndex(pwzFolderPath, m_folders, &m_nIndex);
 
     return m_folders.size() > 0;
 }
 /*再生フォルダ設定*/
 void CMainWindow::SetPlayerFolder(const wchar_t* pwzFolderPath)
 {
+    std::vector<std::wstring> audioFiles;
+    FindAudioFileNames(pwzFolderPath, audioFiles);
     if (m_pKamihimeMediaPlayer != nullptr)
     {
-        m_pKamihimeMediaPlayer->SetFolder(pwzFolderPath);
+        m_pKamihimeMediaPlayer->SetFiles(audioFiles);
     }
 
+    std::vector<std::wstring> imageFiles;
+    win_filesystem::CreateFilePathList(pwzFolderPath, L".jpg", imageFiles);
     if (m_pKamihimeScenePlayer != nullptr)
     {
-        m_bPlayReady = m_pKamihimeScenePlayer->SetFolder(pwzFolderPath);
+        m_bPlayReady = m_pKamihimeScenePlayer->SetFiles(imageFiles);
     }
 
     ChangeWindowTitle(m_bPlayReady ? pwzFolderPath : nullptr);
+}
+/*音声ファイル探索*/
+void CMainWindow::FindAudioFileNames(const wchar_t* pwzFolderPath, std::vector<std::wstring>& names)
+{
+    /*scenario.jsonを読み込み、記載順に音声ファイル一覧を作成する。なければ名前順。*/
+
+    std::vector<std::wstring> textFile;
+    win_filesystem::CreateFilePathList(pwzFolderPath, L".json", textFile);
+    if (textFile.empty())
+    {
+        std::vector<std::wstring> audioFiles;
+        win_filesystem::CreateFilePathList(pwzFolderPath, L".mp3", audioFiles);
+        return;
+    }
+
+    std::wstring wstrText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
+
+    const wchar_t key[] = L"\"voice\":";
+    size_t nKeyLen = wcslen(key);
+
+    size_t nRead = 0;
+    std::vector<std::wstring> audioFileNames;
+
+    for (;;)
+    {
+        wchar_t* p = wcsstr(&wstrText[nRead], key);
+        if (p == nullptr)break;
+
+        nRead += p - &wstrText[nRead] + nKeyLen;
+        p = wcschr(&wstrText[nRead], L'"');
+        if (p == nullptr)break;
+        nRead += p - &wstrText[nRead] + 1;
+
+        p = wcschr(&wstrText[nRead], L'"');
+        if (p == nullptr)break;
+
+        size_t nLen = p - &wstrText[nRead];
+        audioFileNames.emplace_back(wstrText.substr(nRead, nLen));
+        nRead += nLen + 1;
+    }
+
+    std::wstring wstrFolder = std::wstring(pwzFolderPath).append(L"\\");
+    for (const std::wstring& audioFileName : audioFileNames)
+    {
+        std::wstring wstr = wstrFolder + audioFileName;
+        names.emplace_back(wstr);
+    }
 }

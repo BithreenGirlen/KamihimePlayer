@@ -36,13 +36,10 @@ CKamihimeMediaPlayer::~CKamihimeMediaPlayer()
 {
 	Release();
 }
-/*フォルダ設定*/
-bool CKamihimeMediaPlayer::SetFolder(const wchar_t* pzFolderPath)
+bool CKamihimeMediaPlayer::SetFiles(const std::vector<std::wstring>& filePaths)
 {
-	if (pzFolderPath == nullptr)return false;
-	m_wstrFolder = std::wstring(pzFolderPath).append(L"\\/");
-
-	FindAudios();
+	Clear();
+	m_audio_files = filePaths;
 
 	return Play();
 }
@@ -211,27 +208,4 @@ void CKamihimeMediaPlayer::Clear()
 {
 	m_audio_files.clear();
 	m_nIndex = 0;
-}
-/*音声ファイル探索*/
-bool CKamihimeMediaPlayer::FindAudios()
-{
-	Clear();
-
-	WIN32_FIND_DATAW find_file_data;
-	std::wstring wstrFile = m_wstrFolder + L"*.mp3";
-	HANDLE hFind = ::FindFirstFileW(wstrFile.c_str(), &find_file_data);
-	if (hFind != INVALID_HANDLE_VALUE)
-	{
-		do
-		{
-			if (!(find_file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			{
-				std::wstring wstr = m_wstrFolder + find_file_data.cFileName;
-				m_audio_files.push_back(wstr);
-			}
-		} while (::FindNextFileW(hFind, &find_file_data));
-		::FindClose(hFind);
-	}
-
-	return m_audio_files.size() > 0;
 }
