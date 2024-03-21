@@ -69,6 +69,8 @@ private:
 	bool CreateFolderList(const wchar_t* pwzFolderPath);
 	void SetPlayerFolder(const wchar_t* pwzFolderPath);
 
+	void CreateAudioFilePathList(const wchar_t* pwzFolderPath, std::vector<std::wstring>& audioFilePaths);
+
 	CKamihimeScenePlayer* m_pKamihimeScenePlayer = nullptr;
 	CKamihimeMediaPlayer* m_pKamihimeMediaPlayer = nullptr;
 };

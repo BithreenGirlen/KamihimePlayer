@@ -17,9 +17,10 @@ character_6079-3-2-H
 ├ 6079-3-2_d.jpg
 ├ h_anime2_nebuan_nebuan_01.mp3
 ├ h_anime2_nebuan_nebuan_02.mp3
-└ ...
+├ ...
+└ scenario.json
 </pre>
-## マウス操作説明
+## マウス機能
 | 入力 | 動作 |
 ----|---- 
 マウスホイール| 拡大・縮小。
