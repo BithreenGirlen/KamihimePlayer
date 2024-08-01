@@ -110,7 +110,7 @@ bool CKamihimeScenePlayer::SetFiles(const std::vector<std::wstring>& filePaths)
 	return m_image_info.size() > 0;
 }
 /*描画*/
-bool CKamihimeScenePlayer::DisplayImage()
+bool CKamihimeScenePlayer::DrawImage()
 {
 	if (m_image_info.empty() || m_nIndex >= m_image_info.size() || m_pD2d1DeviceContext == nullptr || m_pDxgiSwapChain1 == nullptr)
 	{
@@ -171,12 +171,18 @@ bool CKamihimeScenePlayer::DisplayImage()
 		m_pD2d1DeviceContext->BeginDraw();
 		m_pD2d1DeviceContext->DrawImage(pD2d1Effect, D2D1::Point2F(0.f, 0.f), D2D1::RectF(static_cast<FLOAT>(m_iXOffset), static_cast<FLOAT>(m_iYOffset), uiWidth * fScale, uiHeight * fScale), D2D1_INTERPOLATION_MODE_HIGH_QUALITY_CUBIC, D2D1_COMPOSITE_MODE_SOURCE_COPY);
 		m_pD2d1DeviceContext->EndDraw();
-
-		DXGI_PRESENT_PARAMETERS params{};
-		m_pDxgiSwapChain1->Present1(1, 0, &params);
 	}
 
 	return true;
+}
+/*転写*/
+void CKamihimeScenePlayer::Display()
+{
+	if (m_pDxgiSwapChain1 != nullptr)
+	{
+		DXGI_PRESENT_PARAMETERS params{};
+		m_pDxgiSwapChain1->Present1(1, 0, &params);
+	}
 }
 /*次画像*/
 void CKamihimeScenePlayer::Next()

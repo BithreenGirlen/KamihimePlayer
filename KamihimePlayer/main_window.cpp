@@ -4,9 +4,11 @@
 
 
 #include "main_window.h"
-#include "file_operation.h"
 #include "Resource.h"
+#include "win_dialogue.h"
 #include "win_filesystem.h"
+#include "win_text.h"
+#include "kmhm.h"
 #include "audio_volume_dialogue.h"
 
 #pragma comment(lib, "Comctl32.lib")
@@ -125,8 +127,12 @@ LRESULT CMainWindow::HandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         return OnPaint();
     case WM_ERASEBKGND:
         return 0;
+    case WM_KEYUP:
+        return OnKeyUp(wParam, lParam);
     case WM_COMMAND:
-        return OnCommand(wParam);
+        return OnCommand(wParam, lParam);
+    case WM_TIMER:
+        return OnTimer(wParam);
     case WM_MOUSEWHEEL:
         return OnMouseWheel(wParam, lParam);
     case WM_LBUTTONDOWN:
@@ -135,6 +141,8 @@ LRESULT CMainWindow::HandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
         return OnLButtonUp(wParam, lParam);
     case WM_MBUTTONUP:
         return OnMButtonUp(wParam, lParam);
+    case EventMessage::kAudioPlayer:
+        OnAudioPlayerEvent(static_cast<unsigned long>(lParam));
     }
 
     return ::DefWindowProcW(hWnd, uMsg, wParam, lParam);
@@ -148,7 +156,11 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 
     m_pKamihimeScenePlayer = new CKamihimeScenePlayer(m_hWnd);
 
-    m_pKamihimeMediaPlayer = new CKamihimeMediaPlayer();
+    m_pAudioPlayer = new CMfMediaPlayer(m_hWnd, EventMessage::kAudioPlayer);
+
+    m_pD2TextWriter = new CD2TextWriter(m_pKamihimeScenePlayer->GetD2Factory(), m_pKamihimeScenePlayer->GetD2DeviceContext());
+
+    m_pD2TextWriter->SetupOutLinedDrawing(L"C:\\Windows\\Fonts\\yumindb.ttf");
 
     return 0;
 }
@@ -157,22 +169,31 @@ LRESULT CMainWindow::OnDestroy()
 {
     ::PostQuitMessage(0);
 
+    return 0;
+}
+/*WM_CLOSE*/
+LRESULT CMainWindow::OnClose()
+{
+    ::KillTimer(m_hWnd, Timer::kText);
+
+    if (m_pD2TextWriter != nullptr)
+    {
+        delete m_pD2TextWriter;
+        m_pD2TextWriter = nullptr;
+    }
+
     if (m_pKamihimeScenePlayer != nullptr)
     {
         delete m_pKamihimeScenePlayer;
         m_pKamihimeScenePlayer = nullptr;
     }
 
-    if (m_pKamihimeMediaPlayer != nullptr)
+    if (m_pAudioPlayer != nullptr)
     {
-        delete m_pKamihimeMediaPlayer;
-        m_pKamihimeMediaPlayer = nullptr;
+        delete m_pAudioPlayer;
+        m_pAudioPlayer = nullptr;
     }
-    return 0;
-}
-/*WM_CLOSE*/
-LRESULT CMainWindow::OnClose()
-{
+
     ::DestroyWindow(m_hWnd);
     ::UnregisterClassW(m_class_name.c_str(), m_hInstance);
 
@@ -186,7 +207,16 @@ LRESULT CMainWindow::OnPaint()
 
     if (m_pKamihimeScenePlayer != nullptr)
     {
-        m_pKamihimeScenePlayer->DisplayImage();
+        bool bRet = m_pKamihimeScenePlayer->DrawImage();
+        if (bRet)
+        {
+            if (!m_textData.empty() && !m_bTextHidden && m_pD2TextWriter != nullptr)
+            {
+                const std::wstring wstr = FormatCurrentText();
+                m_pD2TextWriter->OutLinedDraw(wstr.c_str(), static_cast<unsigned long>(wstr.size()));
+            }
+            m_pKamihimeScenePlayer->Display();
+        }
     }
 
     ::EndPaint(m_hWnd, &ps);
@@ -198,38 +228,51 @@ LRESULT CMainWindow::OnSize()
 {
     return 0;
 }
-/*WM_COMMAND*/
-LRESULT CMainWindow::OnCommand(WPARAM wParam)
+/*WM_KEYUP*/
+LRESULT CMainWindow::OnKeyUp(WPARAM wParam, LPARAM lParam)
 {
-    int wmKind = HIWORD(wParam);
+    switch (wParam)
+    {
+    case VK_ESCAPE:
+        ::PostMessage(m_hWnd, WM_CLOSE, 0, 0);
+        break;
+    case VK_UP:
+        KeyUpOnForeFolder();
+        break;
+    case VK_DOWN:
+        KeyUpOnNextFolder();
+        break;
+    case 'C':
+        if (m_pD2TextWriter != nullptr)
+        {
+            m_pD2TextWriter->SwitchTextColour();
+            UpdateScreen();
+        }
+        break;
+    case 'T':
+        m_bTextHidden ^= true;
+        UpdateScreen();
+        break;
+    }
+    return 0;
+}
+/*WM_COMMAND*/
+LRESULT CMainWindow::OnCommand(WPARAM wParam, LPARAM lParam)
+{
     int wmId = LOWORD(wParam);
-    if (wmKind == 0)
+    int iControlWnd = LOWORD(lParam);
+    if (iControlWnd == 0)
     {
         /*Menus*/
         switch (wmId)
         {
-        case Menu::kOpen:
-            MenuOnOpen();
+        case Menu::kOpenFolder:
+            MenuOnOpenFolder();
             break;
-        case Menu::kNextFolder:
-            MenuOnNextFolder();
-            break;
-        case Menu::kForeFolder:
-            MenuOnForeFolder();
-            break;
-        case Menu::kNextAudio:
-            MenuOnNextAudio();
-            break;
-        case Menu::kBack:
-            MenuOnBack();
-            break;
-        case Menu::kPlay:
-            MenuOnPlay();
-            break;
-        case Menu::kLoop:
+        case Menu::kAudioLoop:
             MenuOnLoop();
             break;
-        case Menu::kVolume:
+        case Menu::kAudioVolume:
             MenuOnVolume();
             break;
         case Menu::kPauseImage:
@@ -237,11 +280,30 @@ LRESULT CMainWindow::OnCommand(WPARAM wParam)
             break;
         }
     }
-    if (wmKind > 1)
+    else
     {
         /*Controls*/
     }
 
+    return 0;
+}
+/*WM_TIMER*/
+LRESULT CMainWindow::OnTimer(WPARAM wParam)
+{
+    switch (wParam)
+    {
+    case Timer::kText:
+        if (m_pAudioPlayer != nullptr)
+        {
+            if (m_pAudioPlayer->IsEnded())
+            {
+                AutoTexting();
+            }
+        }
+        break;
+    default:
+        break;
+    }
     return 0;
 }
 /*WM_MOUSEWHEEL*/
@@ -262,16 +324,9 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
         }
     }
 
-    if (wKey == MK_RBUTTON && m_pKamihimeMediaPlayer != nullptr)
+    if (wKey == MK_RBUTTON && m_pAudioPlayer != nullptr)
     {
-        if (iScroll > 0)
-        {
-            m_pKamihimeMediaPlayer->Next();
-        }
-        else
-        {
-            m_pKamihimeMediaPlayer->Back();
-        }
+        ShiftText(iScroll > 0);
     }
 
     if (wKey == MK_LBUTTON && m_pKamihimeScenePlayer != nullptr)
@@ -284,7 +339,7 @@ LRESULT CMainWindow::OnMouseWheel(WPARAM wParam, LPARAM lParam)
         {
             m_pKamihimeScenePlayer->SpeedDown();
         }
-        m_bSpeedSet = true;
+        m_bSpeedHavingChanged = true;
     }
 
     return 0;
@@ -299,15 +354,15 @@ LRESULT CMainWindow::OnLButtonDown(WPARAM wParam, LPARAM lParam)
 /*WM_LBUTTONUP*/
 LRESULT CMainWindow::OnLButtonUp(WPARAM wParam, LPARAM lParam)
 {
-    if (m_bSpeedSet == true)
+    if (m_bSpeedHavingChanged == true)
     {
-        m_bSpeedSet = false;
+        m_bSpeedHavingChanged = false;
         return 0;
     }
 
     WORD usKey = LOWORD(wParam);
 
-    if (usKey == MK_RBUTTON && m_bHideBar)
+    if (usKey == MK_RBUTTON && m_bBarHidden)
     {
         ::PostMessage(m_hWnd, WM_SYSCOMMAND, SC_MOVE, 0);
         INPUT input{};
@@ -356,7 +411,7 @@ void CMainWindow::InitialiseMenuBar()
 {
     HMENU hManuFolder = nullptr;
     HMENU hMenuAudio = nullptr;
-    HMENU kMenuImage = nullptr;
+    HMENU hMenuImage = nullptr;
     HMENU hMenuBar = nullptr;
     BOOL iRet = FALSE;
 
@@ -365,29 +420,19 @@ void CMainWindow::InitialiseMenuBar()
     hManuFolder = ::CreateMenu();
     if (hManuFolder == nullptr)goto failed;
 
-    iRet = ::AppendMenuA(hManuFolder, MF_STRING, Menu::kOpen, "Open");
-    if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hManuFolder, MF_STRING, Menu::kNextFolder, "Next");
-    if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hManuFolder, MF_STRING, Menu::kForeFolder, "Back");
+    iRet = ::AppendMenuA(hManuFolder, MF_STRING, Menu::kOpenFolder, "Open");
     if (iRet == 0)goto failed;
 
     hMenuAudio = ::CreateMenu();
     if (hMenuAudio == nullptr)goto failed;
 
-    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kNextAudio, "Next");
+    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kAudioLoop, "Loop");
     if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kBack, "Back");
-    if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kPlay, "Play");
-    if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kLoop, "Loop");
-    if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kVolume, "Setting");
+    iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kAudioVolume, "Setting");
     if (iRet == 0)goto failed;
 
-    kMenuImage = ::CreateMenu();
-    iRet = ::AppendMenuA(kMenuImage, MF_STRING, Menu::kPauseImage, "Pause");
+    hMenuImage = ::CreateMenu();
+    iRet = ::AppendMenuA(hMenuImage, MF_STRING, Menu::kPauseImage, "Pause");
     if (iRet == 0)goto failed;
 
     hMenuBar = ::CreateMenu();
@@ -397,7 +442,7 @@ void CMainWindow::InitialiseMenuBar()
     if (iRet == 0)goto failed;
     iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuAudio), "Audio");
     if (iRet == 0)goto failed;
-    iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(kMenuImage), "Image");
+    iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuImage), "Image");
     if (iRet == 0)goto failed;
 
     iRet = ::SetMenu(m_hWnd, hMenuBar);
@@ -420,9 +465,9 @@ failed:
     {
         ::DestroyMenu(hMenuAudio);
     }
-    if (kMenuImage != nullptr)
+    if (hMenuImage != nullptr)
     {
-        ::DestroyMenu(kMenuImage);
+        ::DestroyMenu(hMenuImage);
     }
     if (hMenuBar != nullptr)
     {
@@ -431,63 +476,19 @@ failed:
 
 }
 /*フォルダ選択*/
-void CMainWindow::MenuOnOpen()
+void CMainWindow::MenuOnOpenFolder()
 {
-    wchar_t* buffer = SelectWorkingFolder();
-    if (buffer != nullptr)
+    std::wstring wstrPickedupFolder = win_dialogue::SelectWorkFolder(m_hWnd);
+    if (!wstrPickedupFolder.empty())
     {
-        SetPlayerFolder(buffer);
-        CreateFolderList(buffer);
-
-        ::CoTaskMemFree(buffer);
-    }
-}
-/*次フォルダに移動*/
-void CMainWindow::MenuOnNextFolder()
-{
-    if (m_folders.empty())return;
-
-    ++m_nIndex;
-    if (m_nIndex >= m_folders.size())m_nIndex = 0;
-    SetPlayerFolder(m_folders.at(m_nIndex).c_str());
-}
-/*前フォルダに移動*/
-void CMainWindow::MenuOnForeFolder()
-{
-    if (m_folders.empty())return;
-
-    --m_nIndex;
-    if (m_nIndex >= m_folders.size())m_nIndex = m_folders.size() - 1;
-    SetPlayerFolder(m_folders.at(m_nIndex).c_str());
-}
-/*次音声再生*/
-void CMainWindow::MenuOnNextAudio()
-{
-    if (m_pKamihimeMediaPlayer != nullptr)
-    {
-        m_pKamihimeMediaPlayer->Next();
-    }
-}
-/*前音声再生*/
-void CMainWindow::MenuOnBack()
-{
-    if (m_pKamihimeMediaPlayer != nullptr)
-    {
-        m_pKamihimeMediaPlayer->Back();
-    }
-}
-/*現行音声再再生*/
-void CMainWindow::MenuOnPlay()
-{
-    if (m_pKamihimeMediaPlayer != nullptr)
-    {
-        m_pKamihimeMediaPlayer->Play();
+        SetupScenario(wstrPickedupFolder.c_str());
+        CreateFolderList(wstrPickedupFolder.c_str());
     }
 }
 /*音声ループ設定変更*/
 void CMainWindow::MenuOnLoop()
 {
-    if (m_pKamihimeMediaPlayer != nullptr)
+    if (m_pAudioPlayer != nullptr)
     {
         HMENU hMenuBar = ::GetMenu(m_hWnd);
         if (hMenuBar != nullptr)
@@ -495,8 +496,8 @@ void CMainWindow::MenuOnLoop()
             HMENU hMenu = ::GetSubMenu(hMenuBar, MenuBar::kAudio);
             if (hMenu != nullptr)
             {
-                BOOL iRet = m_pKamihimeMediaPlayer->SwitchLoop();
-                ::CheckMenuItem(hMenu, Menu::kLoop, iRet == TRUE ? MF_CHECKED : MF_UNCHECKED);
+                BOOL iRet = m_pAudioPlayer->SwitchLoop();
+                ::CheckMenuItem(hMenu, Menu::kAudioLoop, iRet == TRUE ? MF_CHECKED : MF_UNCHECKED);
             }
         }
     }
@@ -507,7 +508,7 @@ void CMainWindow::MenuOnVolume()
     CAudioVolumeDialogue* pAudioVolumeDialogue = new CAudioVolumeDialogue();
     if (pAudioVolumeDialogue != nullptr)
     {
-        pAudioVolumeDialogue->Open(m_hInstance, m_hWnd, m_pKamihimeMediaPlayer);
+        pAudioVolumeDialogue->Open(m_hInstance, m_hWnd, m_pAudioPlayer);
 
         delete pAudioVolumeDialogue;
     }
@@ -528,6 +529,24 @@ void CMainWindow::MenuOnPauseImage()
             }
         }
     }
+}
+/*次フォルダに移動*/
+void CMainWindow::KeyUpOnNextFolder()
+{
+    if (m_folderList.empty())return;
+
+    ++m_nFolderIndex;
+    if (m_nFolderIndex >= m_folderList.size())m_nFolderIndex = 0;
+    SetupScenario(m_folderList.at(m_nFolderIndex).c_str());
+}
+/*前フォルダに移動*/
+void CMainWindow::KeyUpOnForeFolder()
+{
+    if (m_folderList.empty())return;
+
+    --m_nFolderIndex;
+    if (m_nFolderIndex >= m_folderList.size())m_nFolderIndex = m_folderList.size() - 1;
+    SetupScenario(m_folderList.at(m_nFolderIndex).c_str());
 }
 /*標題変更*/
 void CMainWindow::ChangeWindowTitle(const wchar_t* pzTitle)
@@ -551,9 +570,9 @@ void CMainWindow::SwitchWindowMode()
     ::GetWindowRect(m_hWnd, &rect);
     LONG lStyle = ::GetWindowLong(m_hWnd, GWL_STYLE);
 
-    m_bHideBar ^= true;
+    m_bBarHidden ^= true;
 
-    if (m_bHideBar)
+    if (m_bBarHidden)
     {
         ::SetWindowLong(m_hWnd, GWL_STYLE, lStyle & ~WS_CAPTION & ~WS_SYSMENU);
         ::SetWindowPos(m_hWnd, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER);
@@ -567,29 +586,22 @@ void CMainWindow::SwitchWindowMode()
 
     if (m_pKamihimeScenePlayer != nullptr)
     {
-        m_pKamihimeScenePlayer->SwitchSizeLore(m_bHideBar);
+        m_pKamihimeScenePlayer->SwitchSizeLore(m_bBarHidden);
     }
 
 }
 /*フォルダ一覧表作成*/
 bool CMainWindow::CreateFolderList(const wchar_t* pwzFolderPath)
 {
-    m_folders.clear();
-    m_nIndex = 0;
-    win_filesystem::GetFolderListAndIndex(pwzFolderPath, m_folders, &m_nIndex);
+    m_folderList.clear();
+    m_nFolderIndex = 0;
+    win_filesystem::GetFilePathListAndIndex(pwzFolderPath, nullptr, m_folderList, &m_nFolderIndex);
 
-    return m_folders.size() > 0;
+    return m_folderList.size() > 0;
 }
 /*再生フォルダ設定*/
-void CMainWindow::SetPlayerFolder(const wchar_t* pwzFolderPath)
+void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 {
-    std::vector<std::wstring> audioFiles;
-    CreateAudioFilePathList(pwzFolderPath, audioFiles);
-    if (m_pKamihimeMediaPlayer != nullptr)
-    {
-        m_pKamihimeMediaPlayer->SetFiles(audioFiles);
-    }
-
     std::vector<std::wstring> imageFiles;
     win_filesystem::CreateFilePathList(pwzFolderPath, L".jpg", imageFiles);
     if (m_pKamihimeScenePlayer != nullptr)
@@ -597,54 +609,115 @@ void CMainWindow::SetPlayerFolder(const wchar_t* pwzFolderPath)
         m_bPlayReady = m_pKamihimeScenePlayer->SetFiles(imageFiles);
     }
 
-    ChangeWindowTitle(m_bPlayReady ? pwzFolderPath : nullptr);
-}
-/*音声ファイル経路一覧作成*/
-void CMainWindow::CreateAudioFilePathList(const wchar_t* pwzFolderPath, std::vector<std::wstring>& audioFilePaths)
-{
-    /*scenario.jsonを読み込み、記載順に音声ファイル一覧を作成する。なければ名前順。*/
+    /*scenario.jsonを基に台本作成。なければ名前順の音声ファイル一覧を作成。*/
 
+    m_textData.clear();
+    m_nTextIndex = 0;
     std::vector<std::wstring> textFile;
     win_filesystem::CreateFilePathList(pwzFolderPath, L".json", textFile);
 
     if (!textFile.empty())
     {
-        std::wstring wstrText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
+        auto scenarioText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
+        std::vector<adv::TextDatum> textData;
+        kmhm::LoadScenarioFile(scenarioText, textData);
 
-        const wchar_t key[] = L"\"voice\":";
-        size_t nKeyLen = wcslen(key);
-
-        size_t nRead = 0;
-        std::vector<std::wstring> audioFileNames;
-
-        for (;;)
+        const std::wstring wstrDirectory = std::wstring(pwzFolderPath).append(L"\\");
+        for (auto& textDatum : textData)
         {
-            wchar_t* p = wcsstr(&wstrText[nRead], key);
-            if (p == nullptr)break;
-
-            nRead += p - &wstrText[nRead] + nKeyLen;
-            p = wcschr(&wstrText[nRead], L'"');
-            if (p == nullptr)break;
-            nRead += p - &wstrText[nRead] + 1;
-
-            p = wcschr(&wstrText[nRead], L'"');
-            if (p == nullptr)break;
-
-            size_t nLen = p - &wstrText[nRead];
-            audioFileNames.emplace_back(wstrText.substr(nRead, nLen));
-            nRead += nLen + 1;
+            if (!textDatum.wstrVoicePath.empty())
+            {
+                textDatum.wstrVoicePath = wstrDirectory + textDatum.wstrVoicePath;
+            }
         }
-
-        std::wstring wstrFolder = std::wstring(pwzFolderPath).append(L"\\");
-        for (const std::wstring& audioFileName : audioFileNames)
-        {
-            std::wstring wstr = wstrFolder + audioFileName;
-            audioFilePaths.emplace_back(wstr);
-        }
+        m_textData = textData;
     }
-    if (audioFilePaths.empty())
+    if (m_textData.empty())
     {
+        std::vector<std::wstring> audioFilePaths;
         win_filesystem::CreateFilePathList(pwzFolderPath, L".mp3", audioFilePaths);
+
+        for (const auto& voicePath : audioFilePaths)
+        {
+            m_textData.emplace_back(adv::TextDatum{L"", voicePath});
+        }
     }
 
+    UpdateText();
+
+    ChangeWindowTitle(m_bPlayReady ? pwzFolderPath : nullptr);
+}
+/*再描画要求*/
+void CMainWindow::UpdateScreen()
+{
+    ::InvalidateRect(m_hWnd, nullptr, FALSE);
+}
+/*表示文作成*/
+std::wstring CMainWindow::FormatCurrentText()
+{
+    const adv::TextDatum& t = m_textData.at(m_nTextIndex);
+    std::wstring wstr = t.wstrText;
+    wstr.insert(wstr.size() / 2, L"\n");
+    //constexpr unsigned int kWodrdsInALine = 24;
+    //for (size_t i = kWodrdsInALine; i < wstr.size(); i += kWodrdsInALine)
+    //{
+    //    wstr.insert(i, L"\n");
+    //}
+    if (t.wstrText.back() != L'\n') wstr += L"\n ";
+    wstr += std::to_wstring(m_nTextIndex + 1) + L"/" + std::to_wstring(m_textData.size());
+    return wstr;
+}
+/*文章送り・戻し*/
+void CMainWindow::ShiftText(bool bForward)
+{
+    if (bForward)
+    {
+        ++m_nTextIndex;
+        if (m_nTextIndex >= m_textData.size())m_nTextIndex = 0;
+    }
+    else
+    {
+        --m_nTextIndex;
+        if (m_nTextIndex >= m_textData.size())m_nTextIndex = m_textData.size() - 1;
+    }
+    UpdateText();
+}
+/*文章更新*/
+void CMainWindow::UpdateText()
+{
+    if (!m_textData.empty())
+    {
+        const adv::TextDatum& t = m_textData.at(m_nTextIndex);
+        if (!t.wstrVoicePath.empty())
+        {
+            if (m_pAudioPlayer != nullptr)
+            {
+                m_pAudioPlayer->Play(t.wstrVoicePath.c_str());
+            }
+        }
+        constexpr unsigned int kTimerInterval = 2000;
+        ::SetTimer(m_hWnd, Timer::kText, kTimerInterval, nullptr);
+    }
+
+    ::InvalidateRect(m_hWnd, nullptr, FALSE);
+}
+/*IMFMediaEngineNotify::EventNotify*/
+void CMainWindow::OnAudioPlayerEvent(unsigned long ulEvent)
+{
+    switch (ulEvent)
+    {
+    case MF_MEDIA_ENGINE_EVENT_LOADEDMETADATA:
+
+        break;
+    case MF_MEDIA_ENGINE_EVENT_ENDED:
+        AutoTexting();
+        break;
+    default:
+        break;
+    }
+}
+/*自動送り*/
+void CMainWindow::AutoTexting()
+{
+    if (m_nTextIndex < m_textData.size() - 1)ShiftText(true);
 }

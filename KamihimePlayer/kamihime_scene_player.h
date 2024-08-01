@@ -25,7 +25,9 @@ public:
     ~CKamihimeScenePlayer();
 
     bool SetFiles(const std::vector<std::wstring>& filePaths);
-    bool DisplayImage();
+    bool DrawImage();
+    void Display();
+
     void Next();
     void UpScale();
     void DownScale();
@@ -35,6 +37,9 @@ public:
     void SpeedUp();
     void SpeedDown();
     bool SwitchPause();
+
+    ID2D1Factory1* GetD2Factory()const { return m_pD2d1Factory1; }
+    ID2D1DeviceContext* GetD2DeviceContext()const { return m_pD2d1DeviceContext; }
 private:
     HWND m_hRetWnd = nullptr;
 

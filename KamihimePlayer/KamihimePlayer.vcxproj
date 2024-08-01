@@ -127,25 +127,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="adv.h" />
     <ClInclude Include="audio_volume_dialogue.h" />
-    <ClInclude Include="file_operation.h" />
+    <ClInclude Include="d2_text_writer.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="KamihimePlayer.h" />
-    <ClInclude Include="kamihime_media_player.h" />
+    <ClInclude Include="json_minimal.h" />
     <ClInclude Include="kamihime_scene_player.h" />
+    <ClInclude Include="kmhm.h" />
     <ClInclude Include="main_window.h" />
+    <ClInclude Include="mf_media_player.h" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="targetver.h" />
+    <ClInclude Include="win_dialogue.h" />
     <ClInclude Include="win_filesystem.h" />
+    <ClInclude Include="win_text.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="audio_volume_dialogue.cpp" />
-    <ClCompile Include="file_operation.cpp" />
-    <ClCompile Include="KamihimePlayer.cpp" />
-    <ClCompile Include="kamihime_media_player.cpp" />
+    <ClCompile Include="d2_text_writer.cpp" />
+    <ClCompile Include="json_minimal.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="kamihime_scene_player.cpp" />
+    <ClCompile Include="kmhm.cpp" />
     <ClCompile Include="main_window.cpp" />
+    <ClCompile Include="mf_media_player.cpp" />
+    <ClCompile Include="win_dialogue.cpp" />
     <ClCompile Include="win_filesystem.cpp" />
+    <ClCompile Include="win_text.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KamihimePlayer.rc" />

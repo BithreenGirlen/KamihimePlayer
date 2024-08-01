@@ -8,7 +8,7 @@
 #include "audio_volume_dialogue.h"
 #include "resource.h"
 
-#include "kamihime_media_player.h"
+#include "mf_media_player.h"
 
 CAudioVolumeDialogue::CAudioVolumeDialogue()
 {
@@ -219,7 +219,7 @@ LRESULT CAudioVolumeDialogue::OnSize()
 /*WM_VSCROLL*/
 LRESULT CAudioVolumeDialogue::OnVScroll(WPARAM wParam, LPARAM lParam)
 {
-    CKamihimeMediaPlayer* pPlayer = static_cast<CKamihimeMediaPlayer*>(m_pMediaPlayer);
+    CMfMediaPlayer* pPlayer = static_cast<CMfMediaPlayer*>(m_pMediaPlayer);
     if (pPlayer != nullptr)
     {
         HANDLE hScroll = reinterpret_cast<HANDLE>(lParam);
@@ -292,7 +292,7 @@ void CAudioVolumeDialogue::CreateSliders()
 /*現在値取得・表示*/
 void CAudioVolumeDialogue::SetSliderPosition()
 {
-    CKamihimeMediaPlayer* pPlayer = static_cast<CKamihimeMediaPlayer*>(m_pMediaPlayer);
+    CMfMediaPlayer* pPlayer = static_cast<CMfMediaPlayer*>(m_pMediaPlayer);
     if (pPlayer != nullptr)
     {
         if (m_hVolumeSlider != nullptr)
