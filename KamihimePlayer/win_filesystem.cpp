@@ -1,4 +1,4 @@
-
+ï»¿
 #include <Windows.h>
 #include <shlwapi.h>
 
@@ -8,7 +8,7 @@
 
 namespace win_filesystem
 {
-	/*ƒtƒ@ƒCƒ‹‚Ìƒƒ‚ƒŠ“WŠJ*/
+	/*ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒ¡ãƒ¢ãƒªå±•é–‹*/
 	char* LoadExistingFile(const wchar_t* pwzFilePath, unsigned long* ulSize)
 	{
 		HANDLE hFile = ::CreateFile(pwzFilePath, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -41,26 +41,9 @@ namespace win_filesystem
 
 		return nullptr;
 	}
-
-	/*std::string to std::wstring*/
-	std::wstring WidenUtf8(const std::string& str)
-	{
-		if (!str.empty())
-		{
-			int iLen = ::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), nullptr, 0);
-			if (iLen > 0)
-			{
-				std::wstring wstr(iLen, 0);
-				::MultiByteToWideChar(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), &wstr[0], iLen);
-				return wstr;
-			}
-		}
-
-		return std::wstring();
-	}
 }
 
-/*w’èŠK‘w‚Ìƒtƒ@ƒCƒ‹EƒtƒHƒ‹ƒ_ˆê——ì¬*/
+/*æŒ‡å®šéšå±¤ã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ»ãƒ•ã‚©ãƒ«ãƒ€ä¸€è¦§ä½œæˆ*/
 bool win_filesystem::CreateFilePathList(const wchar_t* pwzFolderPath, const wchar_t* pwzFileExtension, std::vector<std::wstring>& paths)
 {
 	if (pwzFolderPath == nullptr)return false;
@@ -83,7 +66,7 @@ bool win_filesystem::CreateFilePathList(const wchar_t* pwzFolderPath, const wcha
 		{
 			do
 			{
-				/*ƒtƒ@ƒCƒ‹ˆê——*/
+				/*ãƒ•ã‚¡ã‚¤ãƒ«ä¸€è¦§*/
 				if (!(sFindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 				{
 					wstrNames.push_back(sFindData.cFileName);
@@ -94,7 +77,7 @@ bool win_filesystem::CreateFilePathList(const wchar_t* pwzFolderPath, const wcha
 		{
 			do
 			{
-				/*ƒtƒHƒ‹ƒ_ˆê——*/
+				/*ãƒ•ã‚©ãƒ«ãƒ€ä¸€è¦§*/
 				if ((sFindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 				{
 					if (wcscmp(sFindData.cFileName, L".") != 0 && wcscmp(sFindData.cFileName, L"..") != 0)
@@ -108,7 +91,7 @@ bool win_filesystem::CreateFilePathList(const wchar_t* pwzFolderPath, const wcha
 		::FindClose(hFind);
 	}
 
-	/*–¼‘O‡‚É®“Ú*/
+	/*åå‰é †ã«æ•´é “*/
 	for (size_t i = 0; i < wstrNames.size(); ++i)
 	{
 		size_t nIndex = i;
@@ -129,46 +112,49 @@ bool win_filesystem::CreateFilePathList(const wchar_t* pwzFolderPath, const wcha
 
 	return paths.size() > 0;
 }
-/*w’èƒtƒHƒ‹ƒ_‚Æ“¯ŠK‘w‚ÌƒtƒHƒ‹ƒ_ˆê——ì¬E‘Š‘ÎˆÊ’uæ“¾*/
-void win_filesystem::GetFolderListAndIndex(const std::wstring& wstrFolderPath, std::vector<std::wstring>& folders, size_t* nIndex)
+/*æŒ‡å®šçµŒè·¯ã¨åŒéšå±¤ã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ»ãƒ•ã‚©ãƒ«ãƒ€ä¸€è¦§ä½œæˆãƒ»ç›¸å¯¾ä½ç½®å–å¾—*/
+void win_filesystem::GetFilePathListAndIndex(const std::wstring& wstrPath, const wchar_t* pwzFileExtension, std::vector<std::wstring>& folders, size_t* nIndex)
 {
 	std::wstring wstrParent;
 	std::wstring wstrCurrent;
 
-	size_t nPos = wstrFolderPath.find_last_of(L"\\/");
+	size_t nPos = wstrPath.find_last_of(L"\\/");
 	if (nPos != std::wstring::npos)
 	{
-		wstrParent = wstrFolderPath.substr(0, nPos);
-		wstrCurrent = wstrFolderPath.substr(nPos + 1);
+		wstrParent = wstrPath.substr(0, nPos);
+		wstrCurrent = wstrPath.substr(nPos + 1);
 	}
 
-	win_filesystem::CreateFilePathList(wstrParent.c_str(), nullptr, folders);
+	win_filesystem::CreateFilePathList(wstrParent.c_str(), pwzFileExtension, folders);
 
-	auto iter = std::find(folders.begin(), folders.end(), wstrFolderPath);
+	auto iter = std::find(folders.begin(), folders.end(), wstrPath);
 	if (iter != folders.end())
 	{
 		*nIndex = std::distance(folders.begin(), iter);
 	}
 }
-/*•¶š—ñ‚Æ‚µ‚Äƒtƒ@ƒCƒ‹“Ç‚İ‚İ*/
-std::wstring win_filesystem::LoadFileAsString(const wchar_t* pwzFilePath)
+/*æ–‡å­—åˆ—ã¨ã—ã¦ãƒ•ã‚¡ã‚¤ãƒ«èª­ã¿è¾¼ã¿*/
+std::string win_filesystem::LoadFileAsString(const wchar_t* pwzFilePath)
 {
-	DWORD dwSize = 0;
-	char* pBuffer = LoadExistingFile(pwzFilePath, &dwSize);
+	DWORD ulSize = 0;
+	char* pBuffer = LoadExistingFile(pwzFilePath, &ulSize);
 	if (pBuffer != nullptr)
 	{
 		std::string str;
-		str.reserve(dwSize);
-		/*I’[•¶š•ïŠÜ*/
-		for (size_t i = 0; i < dwSize; ++i)
-		{
-			str.push_back(*(pBuffer + i));
-		}
+		str.resize(ulSize);
+		memcpy(&str[0], pBuffer, ulSize);
 
 		free(pBuffer);
-		std::wstring wstr = WidenUtf8(str);
-		return wstr;
+		return str;
 	}
 
-	return std::wstring();
+	return std::string();
+}
+
+std::wstring win_filesystem::GetCurrentProcessPath()
+{
+	wchar_t pwzPath[MAX_PATH]{};
+	::GetModuleFileName(nullptr, pwzPath, MAX_PATH);
+	std::wstring::size_type nPos = std::wstring(pwzPath).find_last_of(L"\\/");
+	return std::wstring(pwzPath).substr(0, nPos);
 }
