@@ -657,13 +657,12 @@ std::wstring CMainWindow::FormatCurrentText()
 {
     const adv::TextDatum& t = m_textData.at(m_nTextIndex);
     std::wstring wstr = t.wstrText;
-    wstr.insert(wstr.size() / 2, L"\n");
-    //constexpr unsigned int kWodrdsInALine = 24;
-    //for (size_t i = kWodrdsInALine; i < wstr.size(); i += kWodrdsInALine)
-    //{
-    //    wstr.insert(i, L"\n");
-    //}
-    if (t.wstrText.back() != L'\n') wstr += L"\n ";
+    constexpr unsigned int kLineThreashold = 24;
+    for (size_t i = kLineThreashold; i < wstr.size(); i += kLineThreashold)
+    {
+        wstr.insert(i, L"\n");
+    }
+    if (!t.wstrText.empty() && t.wstrText.back() != L'\n') wstr += L"\n ";
     wstr += std::to_wstring(m_nTextIndex + 1) + L"/" + std::to_wstring(m_textData.size());
     return wstr;
 }
