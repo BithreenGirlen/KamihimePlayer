@@ -63,8 +63,9 @@ bool ExtractJsonObject(char** src, const char* name, char** dst)
 			--iCount;
 		}
 	}
+	++q;
 
-	nLen = q - p + 1;
+	nLen = q - p;
 	char* pBuffer = static_cast<char*>(malloc(nLen + 1));
 	if (pBuffer == nullptr)return false;
 
@@ -130,8 +131,9 @@ bool ExtractJsonArray(char** src, const char* name, char** dst)
 			--iCount;
 		}
 	}
+	++q;
 
-	nLen = q - p + 1;
+	nLen = q - p;
 	char* pBuffer = static_cast<char*>(malloc(nLen + 1));
 	if (pBuffer == nullptr)return false;
 
@@ -172,7 +174,7 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 	}
 
 	nLen = p - pp;
-	if (nLen > nDstSize)return false;
+	if (nLen > nDstSize - 1)return false;
 	memcpy(dst, pp, nLen);
 	*(dst + nLen) = '\0';
 
@@ -220,7 +222,7 @@ bool ReadNextKey(char** src, char* key, size_t nKeySize, char* value, size_t nVa
 	}
 
 	nLen = pp - p;
-	if (nLen > nKeySize)return false;
+	if (nLen > nKeySize - 1)return false;
 	memcpy(key, p, nLen);
 	*(key + nLen) = '\0';
 
@@ -235,7 +237,7 @@ bool ReadNextKey(char** src, char* key, size_t nKeySize, char* value, size_t nVa
 	}
 
 	nLen = p - pp;
-	if (nLen > nValueSize)return false;
+	if (nLen > nValueSize - 1)return false;
 	memcpy(value, pp, nLen);
 	*(value + nLen) = '\0';
 	*src = p + 1;
@@ -268,7 +270,7 @@ bool ReadNextArrayValue(char** src, char* dst, size_t nDstSize)
 	}
 
 	nLen = pp - p;
-	if (nLen > nDstSize)return false;
+	if (nLen > nDstSize - 1)return false;
 	memcpy(dst, p, nLen);
 	*(dst + nLen) = '\0';
 	*src = *pp == '"' ? pp + 1: pp;
