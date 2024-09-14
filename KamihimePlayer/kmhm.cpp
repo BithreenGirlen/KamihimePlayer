@@ -35,14 +35,22 @@ bool kmhm::LoadScenarioFile(const std::string &scenarioText, std::vector<adv::Te
         }
     }
 
-    std::vector<char> vBuffer(256);
+    std::vector<char> vBuffer(512, '\0');
     for (auto& talk : talks)
     {
         adv::TextDatum textDatum;
-        bool bRet = json_minimal::GetJsonElementValue(&talk[0], "words", vBuffer.data(), vBuffer.size());
+
+        bool bRet = json_minimal::GetJsonElementValue(&talk[0], "chara", vBuffer.data(), vBuffer.size());
+        if (bRet && vBuffer.front() != '\0')
+        {
+            textDatum.wstrText = win_text::WidenUtf8(vBuffer.data());
+            textDatum.wstrText += L": ";
+        }
+
+        bRet = json_minimal::GetJsonElementValue(&talk[0], "words", vBuffer.data(), vBuffer.size());
         if (!bRet)continue;
 
-        textDatum.wstrText = win_text::WidenUtf8(vBuffer.data());
+        textDatum.wstrText += win_text::WidenUtf8(vBuffer.data());
         if (textDatum.wstrText.empty())continue;
 
         bRet = json_minimal::GetJsonElementValue(&talk[0], "voice", vBuffer.data(), vBuffer.size());
