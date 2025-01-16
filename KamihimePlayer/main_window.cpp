@@ -156,7 +156,8 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 
     m_pKamihimeScenePlayer = new CKamihimeScenePlayer(m_hWnd);
 
-    m_pAudioPlayer = new CMfMediaPlayer(m_hWnd, EventMessage::kAudioPlayer);
+    m_pAudioPlayer = new CMfMediaPlayer();
+    m_pAudioPlayer->SetPlaybackWindow(m_hWnd, EventMessage::kAudioPlayer);
 
     m_pD2TextWriter = new CD2TextWriter(m_pKamihimeScenePlayer->GetD2Factory(), m_pKamihimeScenePlayer->GetD2DeviceContext());
 

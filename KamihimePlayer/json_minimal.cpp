@@ -5,9 +5,91 @@
 
 #include "json_minimal.h"
 
+
+/*JSON集合要素終端探索*/
+static bool FindCollectionEnd(char* src, char** dst, int* pForeCount, bool bObject)
+{
+	if (src == nullptr || dst == nullptr)return false;
+	int iCount = pForeCount == nullptr ? 0 : *pForeCount;
+
+	const char cStart = bObject ? '{' : '[';
+	const char cEnd = bObject ? '}' : ']';
+
+	char* p = src;
+	char* pEnd = nullptr;
+	char* pStart = nullptr;
+
+	for (;;)
+	{
+		pEnd = strchr(p, cEnd);
+		if (pEnd == nullptr)return false;
+
+		pStart = strchr(p, cStart);
+		if (pStart == nullptr)break;
+
+		if (pEnd < pStart)
+		{
+			--iCount;
+			p = pEnd + 1;
+		}
+		else
+		{
+			++iCount;
+			p = pStart + 1;
+		}
+
+		if (iCount == 0)break;
+	}
+
+	for (; iCount > 0; ++pEnd)
+	{
+		if (*pEnd == cEnd)
+		{
+			--iCount;
+		}
+	}
+
+	*dst = ++pEnd;
+
+	return true;
+}
+
+/*JSON変数名開始位置探索*/
+static char* FindJsonNameStart(char* src)
+{
+	const char ref[] = " :{[,";
+	for (char* p = src; p != nullptr; ++p)
+	{
+		bool b = false;
+		/*終端除外*/
+		for (size_t i = 0; i < sizeof(ref) - 1; ++i)
+		{
+			if (*p == ref[i])
+			{
+				b = true;
+			}
+		}
+		if (!b)return p;
+	}
+
+	return nullptr;
+}
+/*JSON値開始位置探索*/
+static char* FindJsonValueStart(char* src)
+{
+	const char ref[] = "\"{[0123456789-";
+	return strpbrk(src, ref);
+}
+/*JSON区切り位置探索*/
+static char* FindJsonValueEnd(char* src)
+{
+	const char ref[] = ",}\"]";
+	return strpbrk(src, ref);
+}
+
+
 namespace json_minimal
 {
-
 /*JSON特性体の抽出*/
 bool ExtractJsonObject(char** src, const char* name, char** dst)
 {
@@ -34,36 +116,8 @@ bool ExtractJsonObject(char** src, const char* name, char** dst)
 		pp = p + 1;
 	}
 
-	for (;;)
-	{
-		q = strchr(pp, '}');
-		if (q == nullptr)return false;
-
-		qq = strchr(pp, '{');
-		if (qq == nullptr)break;
-
-		if (q < qq)
-		{
-			--iCount;
-			pp = q + 1;
-		}
-		else
-		{
-			++iCount;
-			pp = qq + 1;
-		}
-
-		if (iCount == 0)break;
-	}
-
-	for (; iCount > 0; ++q)
-	{
-		if (*q == '}')
-		{
-			--iCount;
-		}
-	}
-	++q;
+	bool bRet = FindCollectionEnd(pp, &q, &iCount, true);
+	if (!bRet)return false;
 
 	nLen = q - p;
 	char* pBuffer = static_cast<char*>(malloc(nLen + 1));
@@ -102,36 +156,8 @@ bool ExtractJsonArray(char** src, const char* name, char** dst)
 		pp = p + 1;
 	}
 
-	for (;;)
-	{
-		q = strchr(pp, ']');
-		if (q == nullptr)return false;
-
-		qq = strchr(pp, '[');
-		if (qq == nullptr)break;
-
-		if (q < qq)
-		{
-			--iCount;
-			pp = q + 1;
-		}
-		else
-		{
-			++iCount;
-			pp = qq + 1;
-		}
-
-		if (iCount == 0)break;
-	}
-
-	for (; iCount > 0; ++q)
-	{
-		if (*q == ']')
-		{
-			--iCount;
-		}
-	}
-	++q;
+	bool bRet = FindCollectionEnd(pp, &q, &iCount, false);
+	if (!bRet)return false;
 
 	nLen = q - p;
 	char* pBuffer = static_cast<char*>(malloc(nLen + 1));
@@ -144,14 +170,8 @@ bool ExtractJsonArray(char** src, const char* name, char** dst)
 
 	return true;
 }
-/*JSON区切り位置探索*/
-char* FindJsonValueEnd(char* src)
-{
-	const char ref[] = ",}\"]";
-	return strpbrk(src, ref);
-}
 /*JSON要素の値を取得*/
-bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize)
+bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize, int* iDepth, char** pEnd)
 {
 	char* p = nullptr;
 	char* pp = src;
@@ -164,13 +184,33 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 	if (pp == nullptr)return false;
 	++pp;
 
-	p = FindJsonValueEnd(pp);
+	p = FindJsonValueStart(pp);
 	if (p == nullptr)return false;
-	if (*p == '"')
+	if (*p == '[' || *p == '{') /* 集合要素 */
 	{
-		pp = p + 1;
-		p = strchr(pp, '"');
+		int iCount = 0;
+		bool bRet = FindCollectionEnd(pp, &p, &iCount, *p == '{');
+		if (!bRet)return false;
+	}
+	else /* 単要素 */
+	{
+		p = FindJsonValueEnd(pp);
 		if (p == nullptr)return false;
+		if (*p == '"')
+		{
+			pp = p + 1;
+			p = strchr(pp, '"');
+			if (p == nullptr)return false;
+		}
+		else
+		{
+			for (; *pp == ' '; ++pp);
+			for (char* q = p - 1;; --q)
+			{
+				if (*q != ' ' && *q != '\r' && *q != '\n' && *q != '\t')break;
+				p = q;
+			}
+		}
 	}
 
 	nLen = p - pp;
@@ -178,27 +218,39 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 	memcpy(dst, pp, nLen);
 	*(dst + nLen) = '\0';
 
-	return true;
-}
-/*JSON変数名開始位置探索*/
-char* FindJsonNameStart(char* src)
-{
-	const char ref[] = " :{[,";
-	for (char* p = src; p != nullptr; ++p)
+	/*入れ子の要素であればiDepth > 0*/
+	if (iDepth != nullptr && *pEnd != nullptr)
 	{
-		bool b = false;
-		/*終端除外*/
-		for (size_t i = 0; i < sizeof(ref) - 1; ++i)
+		*pEnd = p + 1;
+
+		char* q = nullptr;
+		char* qq = nullptr;
+		pp = src;
+
+		for (;;)
 		{
-			if (*p == ref[i])
+			q = strchr(pp, '}');
+			if (q == nullptr)break;
+
+			qq = strchr(pp, '{');
+			if (qq == nullptr)break;
+
+			if (q < qq)
 			{
-				b = true;
+				--(*iDepth);
+				pp = q + 1;
 			}
+			else
+			{
+				++(*iDepth);
+				pp = qq + 1;
+			}
+
+			if (pp > p)break;
 		}
-		if (!b)return p;
 	}
 
-	return nullptr;
+	return true;
 }
 /*JSON対要素読み取り*/
 bool ReadNextKey(char** src, char* key, size_t nKeySize, char* value, size_t nValueSize)
@@ -274,6 +326,40 @@ bool ReadNextArrayValue(char** src, char* dst, size_t nDstSize)
 	memcpy(dst, p, nLen);
 	*(dst + nLen) = '\0';
 	*src = *pp == '"' ? pp + 1: pp;
+
+	return true;
+}
+/*名称終わり位置まで読み進め*/
+bool ReadUpToNameEnd(char** src, const char* name, char* value, size_t nValueSize)
+{
+	char* p = nullptr;
+	char* pp = *src;
+
+	if (name != nullptr)
+	{
+		p = strstr(pp, name);
+		if (p == nullptr)return false;
+	}
+	else
+	{
+		p = FindJsonNameStart(pp);
+		if (p == nullptr)return false;
+		++p;
+	}
+
+	pp = FindJsonValueEnd(p);
+	if (pp == nullptr)return false;
+
+	/*名称取得*/
+	if (name == nullptr && value != nullptr && nValueSize != 0)
+	{
+		size_t nLen = pp - p;
+		if (nLen > nValueSize - 1)return false;
+		memcpy(value, p, nLen);
+		*(value + nLen) = '\0';
+	}
+
+	*src = *pp == '"' ? pp + 1 : pp;
 
 	return true;
 }
