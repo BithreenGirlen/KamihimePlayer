@@ -47,8 +47,12 @@ bool CAudioVolumeDialogue::Open(HINSTANCE hInstance, HWND hWnd, void* pMediaPlay
         m_hParentWnd = hWnd;
         m_pMediaPlayer = pMediaPlayer;
 
+        UINT uiDpi = ::GetDpiForSystem();
+        int iWindowWidth = ::MulDiv(100, uiDpi, USER_DEFAULT_SCREEN_DPI);
+        int iWindowHeight = ::MulDiv(200, uiDpi, USER_DEFAULT_SCREEN_DPI);
+
         m_hWnd = ::CreateWindowW(m_class_name.c_str(), m_window_name.c_str(), WS_OVERLAPPEDWINDOW & ~ WS_MINIMIZEBOX & ~ WS_MAXIMIZEBOX & ~WS_THICKFRAME,
-            CW_USEDEFAULT, CW_USEDEFAULT, 100, 200, hWnd, nullptr, hInstance, this);
+            CW_USEDEFAULT, CW_USEDEFAULT, iWindowWidth, iWindowHeight, hWnd, nullptr, hInstance, this);
         if (m_hWnd != nullptr)
         {
             MessageLoop();
