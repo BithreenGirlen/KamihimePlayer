@@ -4,11 +4,14 @@
 #include <Windows.h>
 
 #include <string>
+#include <vector>
 
-#include "kamihime_scene_player.h"
-#include "mf_media_player.h"
+#include "d2_image_drawer.h"
 #include "d2_text_writer.h"
+#include "mf_media_player.h"
+#include "view_manager.h"
 #include "adv.h"
+#include "kamihime_image_transferor.h"
 
 class CMainWindow
 {
@@ -57,8 +60,10 @@ private:
 	{
 		kText = 1,
 	};
+
 	POINT m_CursorPos{};
-	bool m_bSpeedHavingChanged = false;
+	bool m_bLeftDowned = false;
+	bool m_bLeftCombinated = false;
 
 	HMENU m_hMenuBar = nullptr;
 	bool m_bBarHidden = false;
@@ -88,12 +93,17 @@ private:
 
 	void UpdateScreen();
 
-	CKamihimeScenePlayer* m_pKamihimeScenePlayer = nullptr;
-	CMfMediaPlayer* m_pAudioPlayer = nullptr;
+	CD2ImageDrawer* m_pD2ImageDrawer = nullptr;
 	CD2TextWriter* m_pD2TextWriter = nullptr;
+	CMfMediaPlayer* m_pAudioPlayer = nullptr;
+	CViewManager* m_pViewManager = nullptr;
+	CKamihimeImageTransferor* m_pKamihimeImageTransferor = nullptr;
 
 	std::vector<adv::TextDatum> m_textData;
 	size_t m_nTextIndex = 0;
+
+	void ShiftPaintData(bool bForward);
+	void UpdatePaintData();
 
 	std::wstring FormatCurrentText();
 
