@@ -17,7 +17,7 @@ public:
 	CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext, HWND hWnd);
 	~CKamihimeImageTransferor();
 
-	bool SetImages(std::vector<std::wstring>& imageFilePaths);
+	bool SetImages(std::vector<std::vector<std::wstring>>& imageFilePathsList);
 	void GetImageSize(unsigned int* uiWidth, unsigned int* uiHeight);
 
 	void ShiftImage();

@@ -8,6 +8,6 @@
 
 namespace kmhm
 {
-	bool LoadScenarioFile(const std::string &scenarioText, std::vector<adv::TextDatum>& textData);
+	bool LoadScenarioFile(const std::string &scenarioText, std::vector<adv::TextDatum>& textData, std::vector<std::vector<std::wstring>> &imageFileNamesList);
 }
 #endif // !KMHM_H_

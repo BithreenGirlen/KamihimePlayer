@@ -17,93 +17,87 @@ CKamihimeImageTransferor::~CKamihimeImageTransferor()
 	m_winTimer.End();
 }
 
-bool CKamihimeImageTransferor::SetImages(std::vector<std::wstring>& imageFilePaths)
+bool CKamihimeImageTransferor::SetImages(std::vector<std::vector<std::wstring>>& imageFilePathsList)
 {
 	if (m_pStoredD2d1DeviceContext == nullptr)return false;
 
 	ClearImages();
 
-	for (const auto& imageFilePath : imageFilePaths)
+	for (const auto& imageFilePaths : imageFilePathsList)
 	{
-		SImageFrame sWhole{};
-		bool bRet = win_image::LoadImageToMemory(imageFilePath.c_str(), &sWhole, 1.f, win_image::ERotation::Deg270);
-		if (!bRet)continue;
-
 		std::vector<CComPtr<ID2D1Bitmap>> bitmaps;
 
-		const auto ImportImage = [this, &bitmaps](const SPortion &sPortion, UINT uiStride)
-			-> void
-			{
-				CComPtr<ID2D1Bitmap> pD2d1Bitmap;
-
-				HRESULT hr = m_pStoredD2d1DeviceContext->CreateBitmap
-				(
-					D2D1::SizeU(sPortion.uiWidth, sPortion.uiHeight),
-					D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
-					&pD2d1Bitmap
-				);
-
-				D2D1_RECT_U rc{ 0, 0, sPortion.uiWidth, sPortion.uiHeight };
-
-				hr = pD2d1Bitmap->CopyFromMemory(&rc, sPortion.pData, uiStride);
-				if (SUCCEEDED(hr))
-				{
-					bitmaps.push_back(std::move(pD2d1Bitmap));
-				}
-			};
-
-		UINT uiDivX = sWhole.uiWidth / Constants::kWidth;
-		UINT uiDivY = sWhole.uiHeight / Constants::kHeight;
-
-		if (uiDivX == 0 || uiDivY == 0)continue;
-
-		if (uiDivX == 1)
+		for (const auto& imageFilePath : imageFilePaths)
 		{
-			SPortion sPortion{};
-			sPortion.pData = sWhole.pixels.data();
+			SImageFrame sWhole{};
+			bool bRet = win_image::LoadImageToMemory(imageFilePath.c_str(), &sWhole, 1.f, win_image::ERotation::Deg270);
+			if (!bRet)continue;
 
-			ImportImage(sPortion, sWhole.iStride);
-		}
-		else
-		{
-			SPortion sPortion{};
-			sPortion.uiHeight = sWhole.uiHeight / uiDivY;
-			sPortion.uiWidth = sWhole.uiWidth / uiDivX;
-
-			INT iStride = sWhole.iStride / uiDivX;
-
-			/*
-			* Split sequence of burst scene animations is:
-			*  1   2   3   4
-			*  5   6   7   8
-			*  8   9   10  11
-			*  12  13  14  15
-			* 
-			* At runtime, this is tranformed by 270deg rotation to:
-			*  4  8  12  16
-			*  3  7  11  15
-			*  2  6  10  14
-			*  1  5  9   13
-			* 
-			* In adddition, there is a loop count specification with second parameter,
-			* which performs role only when eye blinking is represented by unequal count of each animation.
-			* "film":[
-			* "0001-1-2_c1_0.jpg",2,
-			* "0001-1-2_c1_1.jpg",2,
-			* ],
-			* For simplicity, 
-			* 
-			* 
-			* Consideration of height may not affect older animations because they does not have horizontal elements.
-			*/
-
-			for (size_t nPortionX = 0; nPortionX < uiDivX; ++nPortionX)
-			{
-				for (long long nPortionY = uiDivY - 1LL; nPortionY >= 0; --nPortionY)
+			const auto ImportImage = [this, &bitmaps](const SPortion& sPortion, UINT uiStride)
+				-> void
 				{
-					sPortion.pData = sWhole.pixels.data() + (nPortionX * iStride) + (nPortionY * sWhole.iStride * sPortion.uiHeight);
+					CComPtr<ID2D1Bitmap> pD2d1Bitmap;
 
-					ImportImage(sPortion, sWhole.iStride);
+					HRESULT hr = m_pStoredD2d1DeviceContext->CreateBitmap
+					(
+						D2D1::SizeU(sPortion.uiWidth, sPortion.uiHeight),
+						D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE)),
+						&pD2d1Bitmap
+					);
+
+					D2D1_RECT_U rc{ 0, 0, sPortion.uiWidth, sPortion.uiHeight };
+
+					hr = pD2d1Bitmap->CopyFromMemory(&rc, sPortion.pData, uiStride);
+					if (SUCCEEDED(hr))
+					{
+						bitmaps.push_back(std::move(pD2d1Bitmap));
+					}
+				};
+
+			UINT uiDivX = sWhole.uiWidth / Constants::kWidth;
+			UINT uiDivY = sWhole.uiHeight / Constants::kHeight;
+
+			if (uiDivX == 0 || uiDivY == 0)continue;
+
+			if (uiDivX == 1)
+			{
+				SPortion sPortion{};
+				sPortion.pData = sWhole.pixels.data();
+
+				ImportImage(sPortion, sWhole.iStride);
+			}
+			else
+			{
+				SPortion sPortion{};
+				sPortion.uiHeight = sWhole.uiHeight / uiDivY;
+				sPortion.uiWidth = sWhole.uiWidth / uiDivX;
+
+				INT iStride = sWhole.iStride / uiDivX;
+
+				/*
+				* Split sequence of burst scene animations is:
+				*  1   2   3   4
+				*  5   6   7   8
+				*  8   9   10  11
+				*  12  13  14  15
+				*
+				* At runtime, this is tranformed by 270deg rotation to:
+				*  4  8  12  16
+				*  3  7  11  15
+				*  2  6  10  14
+				*  1  5  9   13
+				*
+				* This does not affect older animations because they do not have horizontal elements.
+				*/
+
+				for (size_t nPortionX = 0; nPortionX < uiDivX; ++nPortionX)
+				{
+					for (long long nPortionY = uiDivY - 1LL; nPortionY >= 0; --nPortionY)
+					{
+						sPortion.pData = sWhole.pixels.data() + (nPortionX * iStride) + (nPortionY * sWhole.iStride * sPortion.uiHeight);
+
+						ImportImage(sPortion, sWhole.iStride);
+					}
 				}
 			}
 		}

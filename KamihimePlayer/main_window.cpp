@@ -640,37 +640,20 @@ bool CMainWindow::CreateFolderList(const wchar_t* pwzFolderPath)
 /*再生フォルダ設定*/
 void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 {
-	std::vector<std::wstring> imageFiles;
-	bool bRet = win_filesystem::CreateFilePathList(pwzFolderPath, L".jpg", imageFiles);
-	if (m_pKamihimeImageTransferor != nullptr)
-	{
-		bRet = m_pKamihimeImageTransferor->SetImages(imageFiles);
-		if (bRet)
-		{
-			unsigned int uiWidth = 0;
-			unsigned int uiHeight = 0;
-			m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
-
-			if (m_pViewManager != nullptr)
-			{
-				m_pViewManager->SetBaseSize(uiWidth, uiHeight);
-				m_pViewManager->ResetZoom();
-			}
-		}
-	}
-
-	/*scenario.jsonを基に台本作成。なければ名前順の音声ファイル一覧を作成。*/
-
+	bool bRet = false;
 	m_textData.clear();
 	m_nTextIndex = 0;
+
 	std::vector<std::wstring> textFile;
 	win_filesystem::CreateFilePathList(pwzFolderPath, L".json", textFile);
-
 	if (!textFile.empty())
 	{
 		auto scenarioText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
+
 		std::vector<adv::TextDatum> textData;
-		kmhm::LoadScenarioFile(scenarioText, textData);
+		std::vector<std::vector<std::wstring>> imageFileNamesList;
+
+		kmhm::LoadScenarioFile(scenarioText, textData, imageFileNamesList);
 
 		const std::wstring wstrDirectory = std::wstring(pwzFolderPath).append(L"\\");
 		for (auto& textDatum : textData)
@@ -680,16 +663,68 @@ void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 				textDatum.wstrVoicePath = wstrDirectory + textDatum.wstrVoicePath;
 			}
 		}
-		m_textData = textData;
+		m_textData = std::move(textData);
+
+		for (auto& imageFiles : imageFileNamesList)
+		{
+			for (auto& imageFileName : imageFiles)
+			{
+				imageFileName = wstrDirectory + imageFileName;
+			}
+		}
+
+		if (m_pKamihimeImageTransferor != nullptr)
+		{
+			bRet = m_pKamihimeImageTransferor->SetImages(imageFileNamesList);
+			if (bRet)
+			{
+				unsigned int uiWidth = 0;
+				unsigned int uiHeight = 0;
+				m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
+
+				if (m_pViewManager != nullptr)
+				{
+					m_pViewManager->SetBaseSize(uiWidth, uiHeight);
+					m_pViewManager->ResetZoom();
+				}
+			}
+		}
 	}
 	if (m_textData.empty())
 	{
+		/* 台本ファイルなし */
 		std::vector<std::wstring> audioFilePaths;
 		win_filesystem::CreateFilePathList(pwzFolderPath, L".mp3", audioFilePaths);
 
 		for (const auto& voicePath : audioFilePaths)
 		{
 			m_textData.emplace_back(adv::TextDatum{L"", voicePath});
+		}
+
+		std::vector<std::wstring> imageFilePaths;
+		bool bRet = win_filesystem::CreateFilePathList(pwzFolderPath, L".jpg", imageFilePaths);
+		if (m_pKamihimeImageTransferor != nullptr)
+		{
+			std::vector<std::vector<std::wstring>> imageFilePathsList;
+			for (const auto& imageFilePath : imageFilePaths)
+			{
+				std::vector<std::wstring> vBuffer;
+				vBuffer.push_back(imageFilePath);
+				imageFilePathsList.push_back(vBuffer);
+			}
+			bRet = m_pKamihimeImageTransferor->SetImages(imageFilePathsList);
+			if (bRet)
+			{
+				unsigned int uiWidth = 0;
+				unsigned int uiHeight = 0;
+				m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
+
+				if (m_pViewManager != nullptr)
+				{
+					m_pViewManager->SetBaseSize(uiWidth, uiHeight);
+					m_pViewManager->ResetZoom();
+				}
+			}
 		}
 	}
 
