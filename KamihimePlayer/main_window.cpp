@@ -409,6 +409,7 @@ LRESULT CMainWindow::OnLButtonUp(WPARAM wParam, LPARAM lParam)
 		{
 			ShiftPaintData(true);
 		}
+		else
 		{
 			if (m_pViewManager != nullptr)
 			{
@@ -644,15 +645,15 @@ void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 	m_textData.clear();
 	m_nTextIndex = 0;
 
+	std::vector<std::vector<std::wstring>> imageFileNamesList;
+
 	std::vector<std::wstring> textFile;
 	win_filesystem::CreateFilePathList(pwzFolderPath, L".json", textFile);
 	if (!textFile.empty())
 	{
-		auto scenarioText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
+		std::string scenarioText = win_filesystem::LoadFileAsString(textFile.at(0).c_str());
 
 		std::vector<adv::TextDatum> textData;
-		std::vector<std::vector<std::wstring>> imageFileNamesList;
-
 		kmhm::LoadScenarioFile(scenarioText, textData, imageFileNamesList);
 
 		const std::wstring wstrDirectory = std::wstring(pwzFolderPath).append(L"\\");
@@ -672,23 +673,6 @@ void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 				imageFileName = wstrDirectory + imageFileName;
 			}
 		}
-
-		if (m_pKamihimeImageTransferor != nullptr)
-		{
-			bRet = m_pKamihimeImageTransferor->SetImages(imageFileNamesList);
-			if (bRet)
-			{
-				unsigned int uiWidth = 0;
-				unsigned int uiHeight = 0;
-				m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
-
-				if (m_pViewManager != nullptr)
-				{
-					m_pViewManager->SetBaseSize(uiWidth, uiHeight);
-					m_pViewManager->ResetZoom();
-				}
-			}
-		}
 	}
 	if (m_textData.empty())
 	{
@@ -705,25 +689,28 @@ void CMainWindow::SetupScenario(const wchar_t* pwzFolderPath)
 		bool bRet = win_filesystem::CreateFilePathList(pwzFolderPath, L".jpg", imageFilePaths);
 		if (m_pKamihimeImageTransferor != nullptr)
 		{
-			std::vector<std::vector<std::wstring>> imageFilePathsList;
 			for (const auto& imageFilePath : imageFilePaths)
 			{
 				std::vector<std::wstring> vBuffer;
 				vBuffer.push_back(imageFilePath);
-				imageFilePathsList.push_back(vBuffer);
+				imageFileNamesList.push_back(vBuffer);
 			}
-			bRet = m_pKamihimeImageTransferor->SetImages(imageFilePathsList);
-			if (bRet)
-			{
-				unsigned int uiWidth = 0;
-				unsigned int uiHeight = 0;
-				m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
+		}
+	}
 
-				if (m_pViewManager != nullptr)
-				{
-					m_pViewManager->SetBaseSize(uiWidth, uiHeight);
-					m_pViewManager->ResetZoom();
-				}
+	if (m_pKamihimeImageTransferor != nullptr)
+	{
+		bRet = m_pKamihimeImageTransferor->SetImages(imageFileNamesList);
+		if (bRet)
+		{
+			unsigned int uiWidth = 0;
+			unsigned int uiHeight = 0;
+			m_pKamihimeImageTransferor->GetImageSize(&uiWidth, &uiHeight);
+
+			if (m_pViewManager != nullptr)
+			{
+				m_pViewManager->SetBaseSize(uiWidth, uiHeight);
+				m_pViewManager->ResetZoom();
 			}
 		}
 	}
