@@ -99,8 +99,8 @@ bool kmhm::LoadScenarioFile(const std::string &scenarioText, std::vector<adv::Te
 				if (!bRet)break;
 
 				/*
-				* There is a parameter to specify loop count, which makes eye blinking natural.
-				* But here, neglect this one for simplicity.
+				* There is a parameter to specify loop count, which helps to make eye blinking less frequent.
+				* But judging from its trivial benefits and complexity, ignore this one for simplicity.
 				*/
 				if (strlen(vBuffer.data()) > 1)
 				{
@@ -110,17 +110,17 @@ bool kmhm::LoadScenarioFile(const std::string &scenarioText, std::vector<adv::Te
 		}
 		else
 		{
-			imageFileNames.push_back(win_text::WidenUtf8(vBuffer.data()));
-		}
-
-		if (!imageFileNames.empty())
-		{
 			if (strstr(vBuffer.data(), "black.jpg") != nullptr ||
 				strstr(vBuffer.data(), "pink_s.jpg") != nullptr)
 			{
 				continue;
 			}
 
+			imageFileNames.push_back(win_text::WidenUtf8(vBuffer.data()));
+		}
+
+		if (!imageFileNames.empty())
+		{
 			imageFileNamesList.push_back(imageFileNames);
 		}
 	}
