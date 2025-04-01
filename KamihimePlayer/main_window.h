@@ -13,6 +13,7 @@
 #include "adv.h"
 #include "kamihime_image_transferor.h"
 #include "win_clock.h"
+#include "font_setting_dialogue.h"
 
 class CMainWindow
 {
@@ -49,12 +50,12 @@ private:
 	enum Menu
 	{
 		kOpenFolder = 1,
-		kAudioLoop, kAudioVolume,
+		kAudioVolume, kTextFont,
 		kPauseImage
 	};
 	enum MenuBar
 	{
-		kFolder, kAudio, kImage
+		kFolder, kSetting, kImage
 	};
 
 	POINT m_cursorPos{};
@@ -74,8 +75,8 @@ private:
 
 	void MenuOnOpenFolder();
 
-	void MenuOnLoop();
 	void MenuOnVolume();
+	void MenuOnFont();
 
 	void MenuOnPauseImage();
 
@@ -95,6 +96,8 @@ private:
 	CMfMediaPlayer* m_pAudioPlayer = nullptr;
 	CViewManager* m_pViewManager = nullptr;
 	CKamihimeImageTransferor* m_pKamihimeImageTransferor = nullptr;
+
+	CFontSettingDialogue* m_pFontSettingDialogue = nullptr;
 
 	std::vector<adv::TextDatum> m_textData;
 	size_t m_nTextIndex = 0;

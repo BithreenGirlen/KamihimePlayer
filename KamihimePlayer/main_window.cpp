@@ -9,7 +9,8 @@
 #include "win_filesystem.h"
 #include "win_text.h"
 #include "kmhm.h"
-#include "audio_volume_dialogue.h"
+#include "media_setting_dialogue.h"
+
 
 #pragma comment(lib, "Comctl32.lib")
 
@@ -171,6 +172,8 @@ LRESULT CMainWindow::OnCreate(HWND hWnd)
 
 	m_pKamihimeImageTransferor = new CKamihimeImageTransferor(m_pD2ImageDrawer->GetD2DeviceContext());
 
+	m_pFontSettingDialogue = new CFontSettingDialogue();
+
 	return 0;
 }
 /*WM_DESTROY*/
@@ -183,6 +186,15 @@ LRESULT CMainWindow::OnDestroy()
 /*WM_CLOSE*/
 LRESULT CMainWindow::OnClose()
 {
+	if (m_pFontSettingDialogue != nullptr)
+	{
+		if (m_pFontSettingDialogue->GetHwnd() != nullptr)
+		{
+			::SendMessage(m_pFontSettingDialogue->GetHwnd(), WM_CLOSE, 0, 0);
+			delete m_pFontSettingDialogue;
+			m_pFontSettingDialogue = nullptr;
+		}
+	}
 	if (m_pKamihimeImageTransferor != nullptr)
 	{
 		delete m_pKamihimeImageTransferor;
@@ -340,11 +352,11 @@ LRESULT CMainWindow::OnCommand(WPARAM wParam, LPARAM lParam)
 		case Menu::kOpenFolder:
 			MenuOnOpenFolder();
 			break;
-		case Menu::kAudioLoop:
-			MenuOnLoop();
-			break;
 		case Menu::kAudioVolume:
 			MenuOnVolume();
+			break;
+		case Menu::kTextFont:
+			MenuOnFont();
 			break;
 		case Menu::kPauseImage:
 			MenuOnPauseImage();
@@ -499,7 +511,7 @@ LRESULT CMainWindow::OnMButtonUp(WPARAM wParam, LPARAM lParam)
 void CMainWindow::InitialiseMenuBar()
 {
 	HMENU hMenuFolder = nullptr;
-	HMENU hMenuAudio = nullptr;
+	HMENU hMenuSetting = nullptr;
 	HMENU hMenuImage = nullptr;
 	HMENU hMenuBar = nullptr;
 	BOOL iRet = FALSE;
@@ -512,12 +524,12 @@ void CMainWindow::InitialiseMenuBar()
 	iRet = ::AppendMenuA(hMenuFolder, MF_STRING, Menu::kOpenFolder, "Open");
 	if (iRet == 0)goto failed;
 
-	hMenuAudio = ::CreateMenu();
-	if (hMenuAudio == nullptr)goto failed;
+	hMenuSetting = ::CreateMenu();
+	if (hMenuSetting == nullptr)goto failed;
 
-	iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kAudioLoop, "Loop");
+	iRet = ::AppendMenuA(hMenuSetting, MF_STRING, Menu::kAudioVolume, "Audio");
 	if (iRet == 0)goto failed;
-	iRet = ::AppendMenuA(hMenuAudio, MF_STRING, Menu::kAudioVolume, "Setting");
+	iRet = ::AppendMenuA(hMenuSetting, MF_STRING, Menu::kTextFont, "Font");
 	if (iRet == 0)goto failed;
 
 	hMenuImage = ::CreateMenu();
@@ -529,7 +541,7 @@ void CMainWindow::InitialiseMenuBar()
 
 	iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuFolder), "Folder");
 	if (iRet == 0)goto failed;
-	iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuAudio), "Audio");
+	iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuSetting), "Setting");
 	if (iRet == 0)goto failed;
 	iRet = ::AppendMenuA(hMenuBar, MF_POPUP, reinterpret_cast<UINT_PTR>(hMenuImage), "Image");
 	if (iRet == 0)goto failed;
@@ -550,9 +562,9 @@ failed:
 	{
 		::DestroyMenu(hMenuFolder);
 	}
-	if (hMenuAudio != nullptr)
+	if (hMenuSetting != nullptr)
 	{
-		::DestroyMenu(hMenuAudio);
+		::DestroyMenu(hMenuSetting);
 	}
 	if (hMenuImage != nullptr)
 	{
@@ -562,7 +574,6 @@ failed:
 	{
 		::DestroyMenu(hMenuBar);
 	}
-
 }
 /*フォルダ選択*/
 void CMainWindow::MenuOnOpenFolder()
@@ -574,32 +585,27 @@ void CMainWindow::MenuOnOpenFolder()
 		CreateFolderList(wstrPickedupFolder.c_str());
 	}
 }
-/*音声ループ設定変更*/
-void CMainWindow::MenuOnLoop()
-{
-	if (m_pAudioPlayer != nullptr)
-	{
-		HMENU hMenuBar = ::GetMenu(m_hWnd);
-		if (hMenuBar != nullptr)
-		{
-			HMENU hMenu = ::GetSubMenu(hMenuBar, MenuBar::kAudio);
-			if (hMenu != nullptr)
-			{
-				BOOL iRet = m_pAudioPlayer->SwitchLoop();
-				::CheckMenuItem(hMenu, Menu::kAudioLoop, iRet == TRUE ? MF_CHECKED : MF_UNCHECKED);
-			}
-		}
-	}
-}
 /*音量・再生速度変更*/
 void CMainWindow::MenuOnVolume()
 {
-	CAudioVolumeDialogue* pAudioVolumeDialogue = new CAudioVolumeDialogue();
-	if (pAudioVolumeDialogue != nullptr)
+	CMediaSettingDialogue sMediaSettingDialogue;
+	sMediaSettingDialogue.Open(m_hInstance, m_hWnd, m_pAudioPlayer, L"Audio");
+}
+/*書体設定*/
+void CMainWindow::MenuOnFont()
+{
+	if (m_pFontSettingDialogue != nullptr)
 	{
-		pAudioVolumeDialogue->Open(m_hInstance, m_hWnd, m_pAudioPlayer);
-
-		delete pAudioVolumeDialogue;
+		if (m_pFontSettingDialogue->GetHwnd() == nullptr)
+		{
+			HWND hWnd = m_pFontSettingDialogue->Open(m_hInstance, m_hWnd, L"Font", m_pD2TextWriter);
+			::SendMessage(hWnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(::LoadIcon(m_hInstance, MAKEINTRESOURCE(IDI_ICON_DAGON))));
+			::ShowWindow(hWnd, SW_SHOWNORMAL);
+		}
+		else
+		{
+			::SetFocus(m_pFontSettingDialogue->GetHwnd());
+		}
 	}
 }
 /*一時停止*/
