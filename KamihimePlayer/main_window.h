@@ -12,6 +12,7 @@
 #include "view_manager.h"
 #include "adv.h"
 #include "kamihime_image_transferor.h"
+#include "win_clock.h"
 
 class CMainWindow
 {
@@ -22,8 +23,9 @@ public:
 	int MessageLoop();
 	HWND GetHwnd()const { return m_hWnd;}
 private:
-	std::wstring m_class_name = L"Kamihime player window";
-	std::wstring m_window_name = L"Kamihime player";
+	const wchar_t* m_swzClassName = L"Kamihime player window";
+	const wchar_t* m_swzDefaultWindowName = L"Kamihime player";
+
 	HINSTANCE m_hInstance = nullptr;
 	HWND m_hWnd = nullptr;
 
@@ -34,9 +36,11 @@ private:
 	LRESULT OnClose();
 	LRESULT OnPaint();
 	LRESULT OnSize();
+	LRESULT OnKeyDown(WPARAM wParam, LPARAM lParam);
 	LRESULT OnKeyUp(WPARAM wParam, LPARAM lParam);
 	LRESULT OnCommand(WPARAM wParam, LPARAM lParam);
 	LRESULT OnTimer(WPARAM wParam);
+	LRESULT OnMouseMove(WPARAM wParam, LPARAM lParam);
 	LRESULT OnMouseWheel(WPARAM wParam, LPARAM lParam);
 	LRESULT OnLButtonDown(WPARAM wParam, LPARAM lParam);
 	LRESULT OnLButtonUp(WPARAM wParam, LPARAM lParam);
@@ -52,17 +56,10 @@ private:
 	{
 		kFolder, kAudio, kImage
 	};
-	enum EventMessage
-	{
-		kAudioPlayer = WM_USER + 1
-	};
-	enum Timer
-	{
-		kText = 1,
-	};
 
-	POINT m_CursorPos{};
+	POINT m_cursorPos{};
 	bool m_bLeftDowned = false;
+	bool m_bLeftDragged = false;
 	bool m_bLeftCombinated = false;
 
 	HMENU m_hMenuBar = nullptr;
@@ -91,7 +88,7 @@ private:
 	bool CreateFolderList(const wchar_t* pwzFolderPath);
 	void SetupScenario(const wchar_t* pwzFolderPath);
 
-	void UpdateScreen();
+	void UpdateScreen() const;
 
 	CD2ImageDrawer* m_pD2ImageDrawer = nullptr;
 	CD2TextWriter* m_pD2TextWriter = nullptr;
@@ -102,14 +99,15 @@ private:
 	std::vector<adv::TextDatum> m_textData;
 	size_t m_nTextIndex = 0;
 
+	CWinClock m_textClock;
+
 	void ShiftPaintData(bool bForward);
-	void UpdatePaintData();
 
 	std::wstring FormatCurrentText();
 
+	void CheckTextClock();
 	void ShiftText(bool bForward);
 	void UpdateText();
-	void OnAudioPlayerEvent(unsigned long ulEvent);
 	void AutoTexting();
 };
 

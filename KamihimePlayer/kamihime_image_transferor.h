@@ -9,12 +9,12 @@
 #include <vector>
 #include <string>
 
-#include "win_timer.h"
+#include "win_clock.h"
 
 class CKamihimeImageTransferor
 {
 public:
-	CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext, HWND hWnd);
+	CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext);
 	~CKamihimeImageTransferor();
 
 	bool SetImages(std::vector<std::vector<std::wstring>>& imageFilePathsList);
@@ -23,13 +23,13 @@ public:
 	void ShiftImage();
 	ID2D1Bitmap* GetCurrentImage();
 
-	bool SwitchPause();
-	void RescaleTimer(bool bFaster);
-	void ResetSpeed();
+	bool TogglePause();
+	void UpdateAnimationInterval(bool bFaster);
+	void ResetAnimationInterval();
 private:
 	enum Constants
 	{
-		kInterval = 32, kWidth = 900, kHeight = 640
+		kDefaultFps = 24, kWidth = 900, kHeight = 640
 	};
 
 	struct SPortion
@@ -40,7 +40,6 @@ private:
 	};
 
 	ID2D1DeviceContext* m_pStoredD2d1DeviceContext = nullptr;
-	HWND m_hRenderWindow = nullptr;
 
 	std::vector<std::vector<CComPtr<ID2D1Bitmap>>> m_images;
 	size_t m_nImageIndex = 0;
@@ -52,8 +51,7 @@ private:
 
 	void ShiftAnimation();
 
-	CWinTimer m_winTimer;
-
-	static void TimerCallback(void* pData);
+	CWinClock m_animationClock;
+	int m_iFps = Constants::kDefaultFps;
 };
 #endif // !KAMIHIME_IMAGE_TRANSFEROR

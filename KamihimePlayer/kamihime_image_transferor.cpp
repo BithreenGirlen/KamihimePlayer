@@ -5,16 +5,15 @@
 #include "win_filesystem.h"
 #include "win_image.h"
 
-CKamihimeImageTransferor::CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext, HWND hWnd)
-	: m_pStoredD2d1DeviceContext(pD2d1DeviceContext), m_hRenderWindow(hWnd)
+CKamihimeImageTransferor::CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext)
+	: m_pStoredD2d1DeviceContext(pD2d1DeviceContext)
 {
-	m_winTimer.SetCallback(&CKamihimeImageTransferor::TimerCallback, this);
-	m_winTimer.SetDerfaultInterval(Constants::kInterval);
+
 }
 
 CKamihimeImageTransferor::~CKamihimeImageTransferor()
 {
-	m_winTimer.End();
+
 }
 
 bool CKamihimeImageTransferor::SetImages(std::vector<std::vector<std::wstring>>& imageFilePathsList)
@@ -78,8 +77,8 @@ bool CKamihimeImageTransferor::SetImages(std::vector<std::vector<std::wstring>>&
 				* Split sequence of burst scene animations is:
 				*  1   2   3   4
 				*  5   6   7   8
-				*  8   9   10  11
-				*  12  13  14  15
+				*  9   10  11  12
+				*  13  14  15  16
 				*
 				* At runtime, this is tranformed by 270deg rotation to:
 				*  4  8  12  16
@@ -108,14 +107,7 @@ bool CKamihimeImageTransferor::SetImages(std::vector<std::vector<std::wstring>>&
 		}
 	}
 
-	if (!m_images.empty())
-	{
-		m_winTimer.Start();
-	}
-	else
-	{
-		m_winTimer.End();
-	}
+	m_animationClock.Restart();
 
 	return !m_images.empty();
 }
@@ -158,37 +150,40 @@ ID2D1Bitmap* CKamihimeImageTransferor::GetCurrentImage()
 	ID2D1Bitmap* p = m_images[m_nImageIndex][m_nAnimationIndex];
 	if (!m_bPaused)
 	{
-		ShiftAnimation();
+		float fElapsed = m_animationClock.GetElapsedTime();
+		if (::isgreaterequal(fElapsed, 1000/ static_cast<float>(m_iFps)))
+		{
+			ShiftAnimation();
+			m_animationClock.Restart();
+		}
 	}
 
 	return p;
 }
 /*停止切り替え*/
-bool CKamihimeImageTransferor::SwitchPause()
+bool CKamihimeImageTransferor::TogglePause()
 {
+	m_animationClock.Restart();
+
 	m_bPaused ^= true;
 	return m_bPaused;
 }
 /*コマ送り加速・減速*/
-void CKamihimeImageTransferor::RescaleTimer(bool bFaster)
+void CKamihimeImageTransferor::UpdateAnimationInterval(bool bFaster)
 {
-	long long llInterval = m_winTimer.GetInterval();
-
 	if (bFaster)
 	{
-		if (--llInterval <= 1)llInterval = 1;
+		++m_iFps;
 	}
 	else
 	{
-		++llInterval;
+		if (--m_iFps <= 1)m_iFps = 1;
 	}
-
-	m_winTimer.SetInterval(llInterval);
 }
 /*速度初期化*/
-void CKamihimeImageTransferor::ResetSpeed()
+void CKamihimeImageTransferor::ResetAnimationInterval()
 {
-	m_winTimer.ResetInterval();
+	m_iFps = Constants::kDefaultFps;
 }
 /*消去*/
 void CKamihimeImageTransferor::ClearImages()
@@ -197,7 +192,7 @@ void CKamihimeImageTransferor::ClearImages()
 	m_nImageIndex = 0;
 	m_nAnimationIndex = 0;
 
-	ResetSpeed();
+	ResetAnimationInterval();
 }
 /*コマ送り*/
 void CKamihimeImageTransferor::ShiftAnimation()
@@ -210,18 +205,5 @@ void CKamihimeImageTransferor::ShiftAnimation()
 	if (++m_nAnimationIndex >= m_images[m_nImageIndex].size())
 	{
 		m_nAnimationIndex = 0;
-	}
-}
-/*再描画要求*/
-void CKamihimeImageTransferor::TimerCallback(void* pData)
-{
-	auto pThis = static_cast<CKamihimeImageTransferor*>(pData);
-	if (pThis != nullptr)
-	{
-		HWND hWnd = pThis->m_hRenderWindow;
-		if (::IsWindow(hWnd))
-		{
-			::InvalidateRect(hWnd, nullptr, FALSE);
-		}
 	}
 }
