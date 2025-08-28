@@ -1,4 +1,4 @@
-#ifndef MAIN_WINDOW_H_
+﻿#ifndef MAIN_WINDOW_H_
 #define MAIN_WINDOW_H_
 
 #include <Windows.h>
@@ -45,28 +45,30 @@ private:
 	LRESULT OnMouseWheel(WPARAM wParam, LPARAM lParam);
 	LRESULT OnLButtonDown(WPARAM wParam, LPARAM lParam);
 	LRESULT OnLButtonUp(WPARAM wParam, LPARAM lParam);
+	LRESULT OnRButtonUp(WPARAM wParam, LPARAM lParam);
 	LRESULT OnMButtonUp(WPARAM wParam, LPARAM lParam);
 
 	enum Menu
 	{
 		kOpenFolder = 1,
 		kAudioVolume, kTextFont,
-		kPauseImage
+		kPauseImage, kSyncImage,
+		kLabelStartIndex
 	};
 	enum MenuBar
 	{
 		kFolder, kSetting, kImage
 	};
 
-	POINT m_cursorPos{};
-	bool m_bLeftDowned = false;
-	bool m_bLeftDragged = false;
-	bool m_bLeftCombinated = false;
+	POINT m_lastCursorPos{};
+	bool m_wasLeftPressed = false;
+	bool m_hasLeftBeenDragged = false;
+	bool m_wasLeftCombinated = false;
+	bool m_wasRightCombinated = false;
 
 	HMENU m_hMenuBar = nullptr;
-	bool m_bBarHidden = false;
-	bool m_bPlayReady = false;
-	bool m_bTextHidden = false;
+	bool m_isBarHidden = false;
+	bool m_isTextHidden = false;
 
 	std::vector<std::wstring> m_folderList;
 	size_t m_nFolderIndex = 0;
@@ -79,15 +81,18 @@ private:
 	void MenuOnFont();
 
 	void MenuOnPauseImage();
+	void MenuOnSyncImage();
 
 	void KeyUpOnNextFolder();
 	void KeyUpOnForeFolder();
 
 	void ChangeWindowTitle(const wchar_t* pzTitle);
-	void SwitchWindowMode();
+	void TogglwWindowBorderStyle();
+	bool SetMenuCheckState(unsigned int uiMenuIndex, unsigned int uiItemIndex, bool checked) const;
 
 	bool CreateFolderList(const wchar_t* pwzFolderPath);
 	void SetupScenario(const wchar_t* pwzFolderPath);
+	void JumpToLabel(size_t nIndex);
 
 	void UpdateScreen() const;
 
@@ -99,14 +104,7 @@ private:
 
 	CFontSettingDialogue* m_pFontSettingDialogue = nullptr;
 
-	std::vector<adv::TextDatum> m_textData;
-	size_t m_nTextIndex = 0;
-
 	CWinClock m_textClock;
-
-	void ShiftPaintData(bool bForward);
-
-	std::wstring FormatCurrentText();
 
 	void CheckTextClock();
 	void ShiftText(bool bForward);

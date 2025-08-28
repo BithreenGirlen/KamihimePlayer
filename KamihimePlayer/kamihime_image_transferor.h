@@ -9,6 +9,7 @@
 #include <vector>
 #include <string>
 
+#include "adv.h"
 #include "win_clock.h"
 
 class CKamihimeImageTransferor
@@ -17,15 +18,33 @@ public:
 	CKamihimeImageTransferor(ID2D1DeviceContext* pD2d1DeviceContext);
 	~CKamihimeImageTransferor();
 
-	bool SetImages(std::vector<std::vector<std::wstring>>& imageFilePathsList);
-	void GetImageSize(unsigned int* uiWidth, unsigned int* uiHeight);
+	bool LoadScenario(const wchar_t* pwzFolderPath);
+	bool HasScenarioData() const;
 
-	void ShiftImage();
+	void GetCurrentImageSize(unsigned int* uiWidth, unsigned int* uiHeight);
+	void GetLargestImageSize(unsigned int* uiWidth, unsigned int* uiHeight);
+
+	void ShiftScene(bool bForward);
+	bool HasReachedLastScene();
+
 	ID2D1Bitmap* GetCurrentImage();
+	std::wstring GetCurrentFormattedText();
+	const wchar_t* GetCurrentVoiceFilePath();
 
 	bool TogglePause();
+	bool IsPaused() const;
+
 	void UpdateAnimationInterval(bool bFaster);
 	void ResetAnimationInterval();
+	void ShiftAnimation();
+
+	bool ToggleImageSync();
+	bool IsImageSynced() const;
+
+	void ShiftImage();
+
+	const std::vector<adv::LabelDatum>& GetLabelData() const;
+	bool JumpToLabel(size_t nLabelIndex);
 private:
 	enum Constants
 	{
@@ -45,11 +64,16 @@ private:
 	size_t m_nImageIndex = 0;
 	size_t m_nAnimationIndex = 0;
 
+	std::vector<adv::TextDatum> m_textData;
+	std::vector<adv::SceneDatum> m_sceneData;
+	size_t m_nSceneIndex = 0;
+	std::vector<adv::LabelDatum> m_labelData;
+
 	bool m_bPaused = false;
+	bool m_bImageSynced = true;
 
-	void ClearImages();
-
-	void ShiftAnimation();
+	void ClearScenarioData();
+	bool LoadImages(std::vector<std::vector<std::wstring>>& imageFilePathsList);
 
 	CWinClock m_animationClock;
 	int m_iFps = Constants::kDefaultFps;
