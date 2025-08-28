@@ -1,12 +1,13 @@
-/*Minimal JSON extractor.*/
+ï»¿/*Minimal JSON extractor.*/
 
 #include <string.h>
 #include <malloc.h>
+#include <ctype.h>
 
 #include "json_minimal.h"
 
 
-/*JSONW‡—v‘fI’[’Tõ*/
+/*JSONé›†åˆè¦ç´ çµ‚ç«¯æ¢ç´¢*/
 static bool FindCollectionEnd(char* src, char** dst, int* pForeCount, bool bObject)
 {
 	if (src == nullptr || dst == nullptr)return false;
@@ -54,14 +55,14 @@ static bool FindCollectionEnd(char* src, char** dst, int* pForeCount, bool bObje
 	return true;
 }
 
-/*JSON•Ï”–¼ŠJnˆÊ’u’Tõ*/
+/*JSONå¤‰æ•°åé–‹å§‹ä½ç½®æ¢ç´¢*/
 static char* FindJsonNameStart(char* src)
 {
 	const char ref[] = " :{[,";
 	for (char* p = src; p != nullptr; ++p)
 	{
 		bool b = false;
-		/*I’[œŠO*/
+		/*çµ‚ç«¯é™¤å¤–*/
 		for (size_t i = 0; i < sizeof(ref) - 1; ++i)
 		{
 			if (*p == ref[i])
@@ -74,23 +75,44 @@ static char* FindJsonNameStart(char* src)
 
 	return nullptr;
 }
-/*JSON’lŠJnˆÊ’u’Tõ*/
+/*JSONå€¤é–‹å§‹ä½ç½®æ¢ç´¢*/
 static char* FindJsonValueStart(char* src)
 {
 	const char ref[] = "\"{[0123456789-";
 	return strpbrk(src, ref);
 }
-/*JSON‹æØ‚èˆÊ’u’Tõ*/
+/*JSONåŒºåˆ‡ã‚Šä½ç½®æ¢ç´¢*/
 static char* FindJsonValueEnd(char* src)
 {
 	const char ref[] = ",}\"]";
 	return strpbrk(src, ref);
 }
+/*JSONè¦ç´ çµ‚äº†ä½ç½®æ¢ç´¢*/
+static char* FindElementEnd(char* src)
+{
+	int nesting = 0;
+	bool inQuote = false;
+	for (char* p = src;;++p)
+	{
+		p = strpbrk(p, ",[]{}\"");
+		if (p == nullptr) return nullptr;
+
+		if (*p == '"')
+		{
+			inQuote ^= true;
+		}
+		if (inQuote)continue;
+
+		if (nesting == 0 && (*p == ',' || *p == ']'))return p;
+		else if (*p == '[' || *p == '{') ++nesting;
+		else if (*p == ']' || *p == '}') --nesting;
+	}
+}
 
 
 namespace json_minimal
 {
-/*JSON“Á«‘Ì‚Ì’Šo*/
+/*JSONç‰¹æ€§ä½“ã®æŠ½å‡º*/
 bool ExtractJsonObject(char** src, const char* name, char** dst)
 {
 	char* p = nullptr;
@@ -130,7 +152,7 @@ bool ExtractJsonObject(char** src, const char* name, char** dst)
 
 	return true;
 }
-/*JSON”z—ñ‚Ì’Šo*/
+/*JSONé…åˆ—ã®æŠ½å‡º*/
 bool ExtractJsonArray(char** src, const char* name, char** dst)
 {
 	char* p = nullptr;
@@ -170,7 +192,7 @@ bool ExtractJsonArray(char** src, const char* name, char** dst)
 
 	return true;
 }
-/*JSON—v‘f‚Ì’l‚ğæ“¾*/
+/*JSONè¦ç´ ã®å€¤ã‚’å–å¾—*/
 bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize, int* iDepth, char** pEnd)
 {
 	char* p = nullptr;
@@ -186,13 +208,13 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 
 	p = FindJsonValueStart(pp);
 	if (p == nullptr)return false;
-	if (*p == '[' || *p == '{') /* W‡—v‘f */
+	if (*p == '[' || *p == '{') /* é›†åˆè¦ç´  */
 	{
 		int iCount = 0;
 		bool bRet = FindCollectionEnd(pp, &p, &iCount, *p == '{');
 		if (!bRet)return false;
 	}
-	else /* ’P—v‘f */
+	else /* å˜è¦ç´  */
 	{
 		p = FindJsonValueEnd(pp);
 		if (p == nullptr)return false;
@@ -218,7 +240,7 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 	memcpy(dst, pp, nLen);
 	*(dst + nLen) = '\0';
 
-	/*“ü‚êq‚Ì—v‘f‚Å‚ ‚ê‚ÎiDepth > 0*/
+	/*å…¥ã‚Œå­ã®è¦ç´ ã§ã‚ã‚Œã°iDepth > 0*/
 	if (iDepth != nullptr && *pEnd != nullptr)
 	{
 		*pEnd = p + 1;
@@ -252,7 +274,48 @@ bool GetJsonElementValue(char* src, const char* name, char* dst, size_t nDstSize
 
 	return true;
 }
-/*JSON‘Î—v‘f“Ç‚İæ‚è*/
+
+bool ExtractArrayValueByIndices(char* src, const size_t* indices, size_t indices_size, char** dst)
+{
+	char* p = src;
+	char* q = nullptr;
+	for (size_t i = 0; i < indices_size; ++i)
+	{
+		p = strchr(p, '[');
+		if (p == nullptr) return false;
+		++p;
+
+		for (size_t j = 0; j < indices[i]; ++j)
+		{
+			while (isspace(*p)) ++p;
+
+			q = FindElementEnd(p);
+			if (q == nullptr || *q == ']') return false;
+			p = q + 1;
+		}
+
+		while (isspace(*p)) ++p;
+
+		if (i == indices_size - 1)
+		{
+			q = FindElementEnd(p);
+			if (q == nullptr) return false;
+
+			size_t len = q - p;
+			char* pResult = static_cast<char*>(malloc(len + 1));
+			if (pResult == nullptr) return false;
+
+			memcpy(pResult, p, len);
+			pResult[len] = '\0';
+			*dst = pResult;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+/*JSONå¯¾è¦ç´ èª­ã¿å–ã‚Š*/
 bool ReadNextKey(char** src, char* key, size_t nKeySize, char* value, size_t nValueSize)
 {
 	char* p = nullptr;
@@ -296,7 +359,7 @@ bool ReadNextKey(char** src, char* key, size_t nKeySize, char* value, size_t nVa
 
 	return true;
 }
-/*Ÿ‚Ì”z—ñ—v‘f“Ç‚İæ‚è*/
+/*æ¬¡ã®é…åˆ—è¦ç´ èª­ã¿å–ã‚Š*/
 bool ReadNextArrayValue(char** src, char* dst, size_t nDstSize)
 {
 	char* p = nullptr;
@@ -329,7 +392,7 @@ bool ReadNextArrayValue(char** src, char* dst, size_t nDstSize)
 
 	return true;
 }
-/*–¼ÌI‚í‚èˆÊ’u‚Ü‚Å“Ç‚İi‚ß*/
+/*åç§°çµ‚ã‚ã‚Šä½ç½®ã¾ã§èª­ã¿é€²ã‚*/
 bool ReadUpToNameEnd(char** src, const char* name, char* value, size_t nValueSize)
 {
 	char* p = nullptr;
@@ -350,7 +413,7 @@ bool ReadUpToNameEnd(char** src, const char* name, char* value, size_t nValueSiz
 	pp = FindJsonValueEnd(p);
 	if (pp == nullptr)return false;
 
-	/*–¼Ìæ“¾*/
+	/*åç§°å–å¾—*/
 	if (name == nullptr && value != nullptr && nValueSize != 0)
 	{
 		size_t nLen = pp - p;
