@@ -143,6 +143,7 @@
     <ClInclude Include="media_setting_dialogue.h" />
     <ClInclude Include="mf_media_player.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="text_utility.h" />
     <ClInclude Include="view_manager.h" />
     <ClInclude Include="win_clock.h" />
     <ClInclude Include="win_dialogue.h" />

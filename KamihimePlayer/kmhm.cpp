@@ -6,6 +6,7 @@
 #include "json_minimal.h"
 #include "win_filesystem.h"
 #include "win_text.h"
+#include "text_utility.h"
 
 /* 内部用 */
 namespace kmhm
@@ -113,19 +114,6 @@ namespace kmhm
 			commandData.push_back(std::move(commandDatum));
 		}
 	}
-
-	static void ReplaceAll(std::wstring& src, const std::wstring& strOld, const std::wstring& strNew)
-	{
-		if (strOld == strNew)return;
-
-		for (size_t nRead = 0;;)
-		{
-			size_t nPos = src.find(strOld, nRead);
-			if (nPos == std::wstring::npos)break;
-			src.replace(nPos, strOld.size(), strNew);
-			nRead = nPos + strNew.size();
-		}
-	};
 } /* namespace kmhm */
 
 /* 台本読み取り */
@@ -136,6 +124,7 @@ bool kmhm::ReadScenario(const std::wstring& wstrFolderPath, std::vector<adv::Tex
 	if (!textFile.empty())
 	{
 		std::string scenarioText = win_filesystem::LoadFileAsString(textFile[0].c_str());
+		text_utility::ReplaceAll(scenarioText, " ", "");
 
 		std::vector<CommandDatum> commandData;
 		ParseScenarioFile(scenarioText, commandData);
@@ -145,6 +134,7 @@ bool kmhm::ReadScenario(const std::wstring& wstrFolderPath, std::vector<adv::Tex
 		for (const auto& commandDatum : commandData)
 		{
 			std::wstring labelBuffer;
+
 			/* 画像 */
 			if (!commandDatum.filmes.empty())
 			{
@@ -162,6 +152,16 @@ bool kmhm::ReadScenario(const std::wstring& wstrFolderPath, std::vector<adv::Tex
 				if (nPos != std::wstring::npos)
 				{
 					labelBuffer = wstrFileName.substr(0, nPos);
+				}
+
+				/* 反心の遷移場面は除外 */
+				if (commandDatum.filmes.size() > 1)
+				{
+					if (commandDatum.filmes[0].find("_d.jpg") != std::string::npos &&
+						commandDatum.filmes[1].find("_a.jpg") != std::string::npos)
+					{
+						continue;
+					}
 				}
 			}
 			/* 人物名・文章・音声 */
@@ -237,7 +237,7 @@ bool kmhm::ReadScenario(const std::wstring& wstrFolderPath, std::vector<adv::Tex
 
 	for (auto& textDatum : textData)
 	{
-		ReplaceAll(textDatum.wstrText, L"{{主人公}}", L"マスター");
+		text_utility::ReplaceAll(textDatum.wstrText, L"{{主人公}}", L"マスター");
 	}
 
 	return true;
